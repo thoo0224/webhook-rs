@@ -6,7 +6,6 @@ edition = "2018"
 description = "Discord Webhook API Wrapper"
 readme = "README.md"
 repository = "https://github.com/thoo0224/webhook-rs"
-license = "Apache License 2.0"
 license-file = "LICENSE.md"
 keywords = ["discord", "discord-api", "webhook", "discord-webhook"]
 exclude = ["src/bin/*"]
