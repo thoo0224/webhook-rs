@@ -1,8 +1,16 @@
 [package]
 name = "webhook"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["thoo0224 <thomasplatschorre@gmail.com>"]
 edition = "2018"
+description = "Discord Webhook API Wrapper"
+readme = "README.md"
+repository = ""
+license = "Apache License 2.0"
+license-file = "LICENSE.md"
+keywords = ["discord", "discord-api", "webhook", "discord-webhook"]
+exclude = ["src/bin/*"]
+publish = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
