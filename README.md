@@ -1,5 +1,5 @@
 # Webhook
-[![Crates](https://img.shields.io/badge/crates.io-Webhook-brightgreen.svg)](https://crates.io/badges/webhook)
+[![Crates](https://img.shields.io/badge/crates.io-Webhook-brightgreen.svg)](https://crates.io/crates/webhook)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ## Use
