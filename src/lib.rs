@@ -34,7 +34,6 @@ trait Sendable {
 
 type OString = Option<String>;
 type OInt32 = Option<i32>;
-type OBool = Option<bool>;
 
 #[derive(Debug, Serialize)]
 pub struct EmbedBuilder {
@@ -347,7 +346,7 @@ impl Message {
     pub fn embed<F>(&mut self, embed: F) -> &mut Message
     where F: Fn(&mut EmbedBuilder) -> &mut EmbedBuilder {
         let mut em = EmbedBuilder::new();
-        let mut embed = embed(&mut em);
+        let embed = embed(&mut em);
         self.embeds.push(embed.build());
         self
     }
@@ -373,7 +372,7 @@ impl Webhook {
     where F: Fn(&mut Message) -> &mut Message {
         let mut msg = Message::new();
         let message = t(&mut msg);
-        let request = self.client.post(&self.url)
+        self.client.post(&self.url)
             .json(&message).send().await?;
         Ok(())
     }
