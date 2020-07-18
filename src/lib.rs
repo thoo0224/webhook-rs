@@ -2,13 +2,15 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 
+type OString = Option<String>;
+type OInt32 = Option<i32>;
+
 pub struct Webhook {
     url: String,
     client: Client
 }
 
-#[derive(Deserialize)]
-#[derive(Debug)]
+#[derive(Deserialize, Debug)]
 pub struct WebhookModel {
     pub name: String,
     #[serde(rename = "type")]
@@ -27,13 +29,6 @@ pub struct WebhookUser {
     pub id: String,
     pub avatar: String
 }
-
-trait Sendable {
-    fn string_content(&self) -> String ;
-}
-
-type OString = Option<String>;
-type OInt32 = Option<i32>;
 
 #[derive(Debug, Serialize)]
 pub struct EmbedBuilder {
@@ -158,7 +153,7 @@ impl EmbedBuilder {
 
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct EmbedField {
     name: String,
     value: String,
@@ -175,17 +170,7 @@ impl EmbedField {
     }
 }
 
-impl Clone for EmbedField {
-    fn clone(&self) -> Self {
-        Self {
-            name: self.name.clone(),
-            value: self.value.clone(),
-            inline: self.inline.clone()
-        }
-    }
-}
-
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct EmbedFooter {
     text: String,
     icon_url: OString,
@@ -202,17 +187,7 @@ impl EmbedFooter {
     }
 }
 
-impl Clone for EmbedFooter {
-    fn clone(&self) -> Self {
-        Self {
-            text: self.text.clone(),
-            icon_url: self.icon_url.clone(),
-            proxy_icon_url: self.proxy_icon_url.clone()
-        }
-    }
-}
-
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct EmbedImage {
     url: OString,
     proxy_url: OString,
@@ -231,18 +206,7 @@ impl EmbedImage {
     }
 }
 
-impl Clone for EmbedImage {
-    fn clone(&self) -> Self {
-        Self {
-            url: self.url.clone(),
-            proxy_url: self.proxy_url.clone(),
-            height: self.height.clone(),
-            width: self.width.clone()
-        }
-    }
-}
-
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct EmbedAuthor {
     name: String,
     url: String,
@@ -261,18 +225,7 @@ impl EmbedAuthor {
     }
 }
 
-impl Clone for EmbedAuthor {
-    fn clone(&self) -> Self {
-        Self {
-            name: self.name.clone(),
-            url: self.url.clone(),
-            icon_url: self.icon_url.clone(),
-            proxy_icon_url: self.proxy_icon_url.clone()
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct EmbedVideo {
     url: String,
     height: OInt32,
@@ -285,16 +238,6 @@ impl EmbedVideo {
             url: url.to_owned(),
             height,
             width
-        }
-    }
-}
-
-impl Clone for EmbedVideo {
-    fn clone(&self) -> Self {
-        Self {
-            url: self.url.clone(),
-            height: self.height.clone(),
-            width: self.width.clone()
         }
     }
 }

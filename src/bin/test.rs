@@ -3,7 +3,7 @@ use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let webhook = Webhook::from_url("https://discordapp.com/api/webhooks/733322041280954429/HGVZY_KIPyuentLKthM283T9eA6SM4tPM3S8r_r7ajHEG8Tb5nPAIPAKOSGmqwSWOo9P");
+    let webhook = Webhook::from_url("https://discordapp.com/api/webhooks/734038418375442444/zJM4d348vtB_adEthVW1dCmR0l7ImP4EJpqBFpMMw1fa9Esu33KbjWr2r-IX7ozewxtX");
     webhook.send(|m| m.
         content("Test")
         .username("ThooOk")
