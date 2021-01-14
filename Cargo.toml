@@ -17,4 +17,6 @@ publish = true
 reqwest = { version = "0.10.6", features = ["json"] }
 serde = { version = "1.0.114", features = ["derive"] }
 serde_json = "1.0.56"
+
+[dev-dependencies]
 tokio = { version = "0.2", features = ["full"] }
