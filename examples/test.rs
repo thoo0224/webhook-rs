@@ -2,8 +2,9 @@ use webhook::Webhook;
 use std::error::Error;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let webhook = Webhook::from_url("https://discordapp.com/api/webhooks/734038418375442444/zJM4d348vtB_adEthVW1dCmR0l7ImP4EJpqBFpMMw1fa9Esu33KbjWr2r-IX7ozewxtX");
+async fn main() -> Result<(), Box<dyn Error + 'static>> {
+    let url = std::env::args().skip(1).next().expect("pass webhook url as first argument");
+    let webhook = Webhook::from_url(&url);
     webhook.send(|m| m.
         content("Test")
         .username("ThooOk")
