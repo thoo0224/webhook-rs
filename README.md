@@ -14,7 +14,7 @@ use std::error::Error;
 #[tokio::main]
 fn main() -> Result<(), Box<dyn Error>> {
     let webhook = Webhook::from_url("{WEBHOOK URL}");
-    webhook.send(|message| message. {
+    webhook.send(|message| { message.
         content("Message")
         .tts(true)
         .username("{USERNAME}")
