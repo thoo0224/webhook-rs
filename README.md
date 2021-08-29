@@ -8,18 +8,21 @@ To use this crate add this to your `Cargo.toml`
 
 ## Example
 ```rust
-use webhook::Webhook;
 use std::error::Error;
+use webhook::Webhook;
 
 #[tokio::main]
 fn main() -> Result<(), Box<dyn Error>> {
     let webhook = Webhook::from_url("{WEBHOOK URL}");
-    webhook.send(|message| { message.
-        content("Message")
-        .tts(true)
-        .username("{USERNAME}")
-        .avatar_url("{AVATAR_URL}")
-        .embed(|embed| embed. // You can have up to 10 embeds
+    webhook
+        .send(|message| {
+            message
+                .content("Message")
+                .tts(true)
+                .username("{USERNAME}")
+                .avatar_url("{AVATAR_URL}")
+                .embed(|embed| {
+                    embed. // You can have up to 10 embeds
             title("{TITLE}")
             .color({COLOR}) // Example: 0x32a852
             .field("{FIELD}", "{VALUE}", {INLINE} (bool)) // You can add multiple fields
@@ -28,8 +31,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             .image("{URL}", {HEIGHT}, {WIDTH})
             .author("{NAME}", "{URL}", "{ICON_URL}", None)
             .footer("{NAME}", "{ICON_URl}")
-        )
-    }).await?;
+                })
+        })
+        .await?;
     Ok(())
 }
 ```
