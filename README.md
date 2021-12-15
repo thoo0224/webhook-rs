@@ -10,14 +10,20 @@ Discord Webhook API Wrapper
 ### Example usage
 For a full example, take a look at `examples/example.rs`.
 ```rust
-let client = WebhookClient::new(&url);
+let url: &str = "Webhook URL";
+let client: WebhookClient = WebhookClient::new(URL);
 client.send(|message| message
-  .content("test")
-  .username("Thoo")
-  .avatar_url("https://cdn.discordapp.com/avatars/312157715449249795/a_b8b3b0c35f3dee2b6586a0dd58697e29.png")
-  .embed(|embed| embed
-    .title("test")
-    .description("o hey men"))).await?;
+    .content("@everyone")
+    .username("Thoo")
+    .avatar_url(IMAGE_URL)
+    .embed(|embed| embed
+        .title("Webhook")
+        .description("Hello, World!")
+        .footer("Footer", Some(String::from(IMAGE_URL)))
+        .image(IMAGE_URL)
+        .thumbnail(IMAGE_URL)
+        .author("Lmao#0001", Some(String::from(IMAGE_URL)), Some(String::from(IMAGE_URL)))
+        .field("name", "value", false))).await?;
 ```
 
 ### To do
