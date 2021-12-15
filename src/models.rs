@@ -21,7 +21,8 @@ pub struct Message {
     pub username: Option<String>,
     pub avatar_url: Option<String>,
     pub tts: bool,
-    pub embeds: Vec<Embed>
+    pub embeds: Vec<Embed>,
+    pub allow_mentions: Option<AllowedMentions>
 }
 
 impl Message {
@@ -32,7 +33,8 @@ impl Message {
             username: None,
             avatar_url: None,
             tts: false,
-            embeds: vec![]
+            embeds: vec![],
+            allow_mentions: None
         }
     }
 
@@ -62,6 +64,15 @@ impl Message {
         func(&mut embed);
         self.embeds.push(embed);
 
+        self
+    }
+
+    pub fn allow_mentions(&mut self,
+                          parse: Option<Vec<AllowedMention>>,
+                          roles: Option<Vec<Snowflake>>,
+                          users: Option<Vec<Snowflake>>,
+                          replied_user: bool) -> &mut Self {
+        self.allow_mentions = Some(AllowedMentions::new(parse, roles, users, replied_user));
         self
     }
 
@@ -248,6 +259,49 @@ impl EmbedAuthor {
             name: name.to_owned(),
             url,
             icon_url
+        }
+    }
+}
+
+pub enum AllowedMention {
+    RoleMention,
+    UserMention,
+    EveryoneMention
+}
+
+fn resolve_allowed_mention_name(allowed_mention: AllowedMention) -> String {
+    match allowed_mention {
+        AllowedMention::RoleMention => "roles".to_string(),
+        AllowedMention::UserMention => "users".to_string(),
+        AllowedMention::EveryoneMention => "everyone".to_string()
+    }
+}
+
+#[derive(Serialize, Debug)]
+pub struct AllowedMentions {
+    pub parse: Option<Vec<String>>,
+    pub roles: Option<Vec<Snowflake>>,
+    pub users: Option<Vec<Snowflake>>,
+    pub replied_user: bool
+}
+
+impl AllowedMentions {
+    pub fn new(parse: Option<Vec<AllowedMention>>,
+               roles: Option<Vec<Snowflake>>,
+               users: Option<Vec<Snowflake>>,
+               replied_user: bool) -> Self {
+        let mut parse_strings: Vec<String> = vec![];
+        if parse.is_some() {
+            parse.unwrap().into_iter().for_each(|x| {
+                parse_strings.push(resolve_allowed_mention_name(x))
+            })
+        }
+
+        Self {
+            parse: Some(parse_strings),
+            roles,
+            users,
+            replied_user
         }
     }
 }
