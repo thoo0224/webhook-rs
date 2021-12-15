@@ -20,5 +20,9 @@ client.send(|message| message
     .description("o hey men"))).await?;
 ```
 
+### To do
+- Attachments
+- Components
+
 ### Contribute
 Any type of contribution is greatly appreciated.
