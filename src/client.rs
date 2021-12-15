@@ -1,7 +1,7 @@
 use hyper_tls::{HttpsConnector};
 use hyper::{Body, Method, Request, StatusCode, Uri};
 use hyper::client::{Client, HttpConnector};
-use hyper::body::{HttpBody, Buf};
+use hyper::body::Buf;
 
 use std::str::FromStr;
 
@@ -55,7 +55,7 @@ impl WebhookClient {
     }
 
     pub async fn get_information(&self) -> WebhookResult<Webhook> {
-        let mut response = self.client.get(Uri::from_str(&self.url)?).await?;
+        let response = self.client.get(Uri::from_str(&self.url)?).await?;
         let body = hyper::body::aggregate(response).await?;
         let webhook = serde_json::from_reader(body.reader())?;
 
