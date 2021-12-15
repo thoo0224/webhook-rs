@@ -1,6 +1,6 @@
 [package]
 name = "webhook"
-version = "0.0.1"
+version = "1.0.0"
 edition = "2018"
 description = "Discord Webhook API Wrapper"
 readme = "README"
@@ -15,6 +15,8 @@ publish = true
 [features]
 default = ["client"]
 client = ["hyper", "hyper-tls"]
+full = ["client", "models"]
+models = []
 
 [dependencies]
 hyper = { version = "0.14.16", features = ["client", "http1", "http2", "tcp"], optional = true }
