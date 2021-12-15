@@ -1,5 +1,4 @@
 use webhook::client::{WebhookClient, WebhookResult};
-use webhook::models::AllowedMention;
 
 const IMAGE_URL: &'static str = "https://cdn.discordapp.com/avatars/312157715449249795/a_b8b3b0c35f3dee2b6586a0dd58697e29.png";
 
