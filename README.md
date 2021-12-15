@@ -8,6 +8,7 @@ Discord Webhook API Wrapper
 </div>
 
 ### Example usage
+For a full example, take a look at `examples/example.rs`.
 ```rust
 let client = WebhookClient::new(&url);
 client.send(|message| message
