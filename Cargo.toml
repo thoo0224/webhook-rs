@@ -10,6 +10,11 @@ keywords = ["discord", "discord-api", "webhook", "discord-webhook"]
 authors = ["Thomas Platschorre"]
 publish = true
 
+exclude = [
+    "examples/*",
+    ".env"
+]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
