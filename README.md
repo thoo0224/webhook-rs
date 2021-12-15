@@ -4,7 +4,7 @@
 
 Discord Webhook API Wrapper
 
-[![Downloads](https://img.shields.io/crates/d/webhook)](https://github.com/thoo0224/Gifski.Net/releases/latest) [![Docs](https://img.shields.io/badge/docs-online-5023dd.svg?style=flat-square)](https://docs.rs/webhook/latest/webhook/)
+[![Downloads](https://img.shields.io/crates/d/webhook)](https://github.com/thoo0224/webhook-rs/releases/latest) [![Docs](https://img.shields.io/badge/docs-online-5023dd.svg?style=flat-square)](https://docs.rs/webhook/latest/webhook/)
 </div>
 
 ### Example usage
@@ -13,7 +13,6 @@ For a full example, take a look at `examples/example.rs`.
 let url: &str = "Webhook URL";
 let client: WebhookClient = WebhookClient::new(URL);
 client.send(|message| message
-    .content("@everyone")
     .username("Thoo")
     .avatar_url(IMAGE_URL)
     .embed(|embed| embed
@@ -24,6 +23,22 @@ client.send(|message| message
         .thumbnail(IMAGE_URL)
         .author("Lmao#0001", Some(String::from(IMAGE_URL)), Some(String::from(IMAGE_URL)))
         .field("name", "value", false))).await?;
+```
+
+### Get started
+To get started, simply add the crate to your `Cargo.toml`.
+
+```toml
+[dependencies]
+webhook = "1.0.0"
+```
+
+If you only want the types, you can get rid of the networking-related
+dependencies by using the feature `models`.
+
+```toml
+[dependencies]
+webhook = { version = "1.0.0", features = ["models"] }
 ```
 
 ### To do
