@@ -1,35 +1,28 @@
-# Webhook
-[![Crates](https://img.shields.io/badge/crates.io-Webhook-brightgreen.svg)](https://crates.io/crates/webhook)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+<div align="center">
 
-## Use
-To use this crate add this to your `Cargo.toml`
-#### `webhook = "1.0.0"`
+# webhook-rs
 
-## Example
+Discord Webhook API Wrapper
+
+[![Downloads](https://img.shields.io/crates/d/webhook)](https://github.com/thoo0224/Gifski.Net/releases/latest) [![Docs](https://img.shields.io/badge/docs-online-5023dd.svg?style=flat-square)](https://docs.rs/webhook/latest/webhook/)
+</div>
+
+### Example usage
+For a full example, take a look at `examples/example.rs`.
 ```rust
-use webhook::Webhook;
-use std::error::Error;
-
-#[tokio::main]
-fn main() -> Result<(), Box<dyn Error>> {
-    let webhook = Webhook::from_url("{WEBHOOK URL}");
-    webhook.send(|message| message. {
-        content("Message")
-        .tts(true)
-        .username("{USERNAME}")
-        .avatar_url("{AVATAR_URL}")
-        .embed(|embed| embed. // You can have up to 10 embeds
-            title("{TITLE}")
-            .color({COLOR}) // Example: 0x32a852
-            .field("{FIELD}", "{VALUE}", {INLINE} (bool)) // You can add multiple fields
-            .field("{FIELD}", "{VALUE}", {INLINE} (bool))
-            .video("{URL}", None, None)
-            .image("{URL}", {HEIGHT}, {WIDTH})
-            .author("{NAME}", "{URL}", "{ICON_URL}", None)
-            .footer("{NAME}", "{ICON_URl}")
-        )
-    }).await?;
-    Ok(())
-}
+let client = WebhookClient::new(&url);
+client.send(|message| message
+  .content("test")
+  .username("Thoo")
+  .avatar_url("https://cdn.discordapp.com/avatars/312157715449249795/a_b8b3b0c35f3dee2b6586a0dd58697e29.png")
+  .embed(|embed| embed
+    .title("test")
+    .description("o hey men"))).await?;
 ```
+
+### To do
+- Attachments
+- Components
+
+### Contribute
+Any type of contribution is greatly appreciated.
