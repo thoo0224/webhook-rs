@@ -4,7 +4,7 @@
 
 Discord Webhook API Wrapper
 
-[![Downloads](https://img.shields.io/crates/d/webhook)](https://github.com/thoo0224/webhook-rs/releases/latest) [![Docs](https://img.shields.io/badge/docs-online-5023dd.svg?style=flat-square)](https://docs.rs/webhook/latest/webhook/)
+[![Crate](https://img.shields.io/crates/d/webhook?style=flat-square)](https://crates.io/crates/webhook) [![Crate](https://img.shields.io/crates/v/webhook?style=flat-square)](https://crates.io/crates/webhook) [![Docs](https://img.shields.io/docsrs/webhook?style=flat-square)](https://docs.rs/webhook/latest/webhook/)
 </div>
 
 ### Example usage
