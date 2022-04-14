@@ -1,7 +1,7 @@
-use hyper_tls::{HttpsConnector};
-use hyper::{Body, Method, Request, StatusCode, Uri};
-use hyper::client::{Client, HttpConnector};
 use hyper::body::Buf;
+use hyper::client::{Client, HttpConnector};
+use hyper::{Body, Method, Request, StatusCode, Uri};
+use hyper_tls::HttpsConnector;
 
 use std::str::FromStr;
 
@@ -12,17 +12,16 @@ pub type WebhookResult<Type> = std::result::Result<Type, Box<dyn std::error::Err
 /// A Client that sends webhooks for discord.
 pub struct WebhookClient {
     client: Client<HttpsConnector<HttpConnector>>,
-    url: String
+    url: String,
 }
 
 impl WebhookClient {
-
     pub fn new(url: &str) -> Self {
         let https_connector = HttpsConnector::new();
         let client = Client::builder().build::<_, hyper::Body>(https_connector);
         Self {
             client,
-            url: url.to_owned()
+            url: url.to_owned(),
         }
     }
 
@@ -34,7 +33,9 @@ impl WebhookClient {
     ///     .username("username")).await?;
     /// ```
     pub async fn send<Func>(&self, function: Func) -> WebhookResult<bool>
-    where Func: Fn(&mut Message) -> &mut Message {
+    where
+        Func: Fn(&mut Message) -> &mut Message,
+    {
         let mut message = Message::new();
         function(&mut message);
         let result = self.send_message(&message).await?;
@@ -51,7 +52,24 @@ impl WebhookClient {
             .body(Body::from(body))?;
         let response = self.client.request(request).await?;
 
-        Ok(response.status() == StatusCode::OK)
+        // https://discord.com/developers/docs/resources/webhook#execute-webhook
+        // execute webhook returns either NO_CONTENT or a message
+        if response.status() == StatusCode::NO_CONTENT {
+            Ok(true)
+        } else {
+            let body_bytes = hyper::body::to_bytes(response.into_body()).await?;
+            let err_msg = match String::from_utf8(body_bytes.to_vec()) {
+                Ok(msg) => msg,
+                Err(err) => {
+                    "Error reading Discord API error message:".to_string() + &err.to_string()
+                }
+            };
+
+            Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                err_msg,
+            )))
+        }
     }
 
     pub async fn get_information(&self) -> WebhookResult<Webhook> {
@@ -61,5 +79,4 @@ impl WebhookClient {
 
         Ok(webhook)
     }
-
 }
