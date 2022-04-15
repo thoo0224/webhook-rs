@@ -38,6 +38,15 @@ impl WebhookClient {
     {
         let mut message = Message::new();
         function(&mut message);
+        match message.first_error_message() {
+            None => (),
+            Some(error_message) => {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    error_message,
+                )));
+            }
+        };
         let result = self.send_message(&message).await?;
 
         Ok(result)
