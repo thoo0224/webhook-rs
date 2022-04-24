@@ -87,7 +87,7 @@ impl Message {
         self.context
             .borrow_mut()
             .get_error(0)
-            .and_then(|s| Some(s.to_string()))
+            .map(|s| s.to_string())
     }
 
     pub fn content(&mut self, content: &str) -> &mut Self {
@@ -126,10 +126,10 @@ impl Message {
         Func: Fn(&mut ActionRow) -> &mut ActionRow,
     {
         let mut row = ActionRow::new(&self.context);
-        if self.action_rows.len() > Self::action_row_max_len() - 1 {
+        if self.action_rows.len() > Self::max_action_row_count() - 1 {
             self.context.borrow_mut().add_error(&format!(
                 "Action row count exceeded {} (maximum)",
-                Self::action_row_max_len()
+                Self::max_action_row_count()
             ));
             return self;
         }
@@ -140,7 +140,7 @@ impl Message {
         self
     }
 
-    fn action_row_max_len() -> usize {
+    pub fn max_action_row_count() -> usize {
         5
     }
 
@@ -433,10 +433,9 @@ impl ActionRow {
     {
         let mut button = LinkButton::new(&self.context);
         func(&mut button);
-        button.create_button().and_then(|b| {
+        if let Some(b) = button.create_button() {
             self.components.push(NonCompositeComponent::Button(b));
-            Some(())
-        });
+        }
 
         self
     }
@@ -447,10 +446,9 @@ impl ActionRow {
     {
         let mut button = RegularButton::new(&self.context);
         func(&mut button);
-        button.create_button().and_then(|b| {
+        if let Some(b) = button.create_button() {
             self.components.push(NonCompositeComponent::Button(b));
-            Some(())
-        });
+        }
         self
     }
 }
@@ -565,7 +563,7 @@ impl Button {
         }
     }
 
-    fn label_max_len() -> usize {
+    pub fn label_max_len() -> usize {
         80
     }
 
@@ -746,7 +744,7 @@ impl ButtonConstructor for LinkButton {
             self.button_base
                 .context
                 .borrow_mut()
-                .add_error(&format!("Url of a Link button must be set!"));
+                .add_error("Url of a Link button must be set!");
             return None;
         }
 
@@ -766,14 +764,14 @@ impl ButtonConstructor for RegularButton {
             self.button_base
                 .context
                 .borrow_mut()
-                .add_error(&format!("Button style of a NonLink button must be set!"));
+                .add_error("Button style of a NonLink button must be set!");
             return None;
         }
         if self.custom_id.is_none() {
             self.button_base
                 .context
                 .borrow_mut()
-                .add_error(&format!("Custom ID of a NonLink button must be set!"));
+                .add_error("Custom ID of a NonLink button must be set!");
             return None;
         }
 
