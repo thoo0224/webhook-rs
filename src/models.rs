@@ -572,10 +572,6 @@ impl Button {
     }
 }
 
-trait ButtonConstructor {
-    fn create_button(&self) -> Option<Button>;
-}
-
 ///
 /// A data holder for shared fields of a link and regular buttons
 ///
@@ -736,6 +732,10 @@ impl RegularButton {
         self.button_base.label(label);
         self
     }
+}
+
+trait ButtonConstructor {
+    fn create_button(&self) -> Option<Button>;
 }
 
 impl ButtonConstructor for LinkButton {
