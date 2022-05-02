@@ -144,6 +144,14 @@ impl Message {
         5
     }
 
+    pub fn label_max_len() -> usize {
+        80
+    }
+
+    pub fn custom_id_max_len() -> usize {
+        100
+    }
+
     pub fn allow_mentions(
         &mut self,
         parse: Option<Vec<AllowedMention>>,
@@ -562,14 +570,6 @@ impl Button {
             context: Rc::clone(context),
         }
     }
-
-    pub fn label_max_len() -> usize {
-        80
-    }
-
-    pub fn custom_id_max_len() -> usize {
-        100
-    }
 }
 
 ///
@@ -598,10 +598,10 @@ impl ButtonCommonBase {
         }
     }
     fn label(&mut self, label: &str) -> &mut Self {
-        if label.len() > Button::label_max_len() {
+        if label.len() > Message::label_max_len() {
             self.context.borrow_mut().add_error(&format!(
                 "Label length exceeds {} characters",
-                Button::label_max_len()
+                Message::label_max_len()
             ));
             return self;
         }
@@ -680,10 +680,10 @@ impl RegularButton {
     }
 
     pub fn custom_id(&mut self, custom_id: &str) -> &mut Self {
-        if custom_id.len() > Button::custom_id_max_len() {
+        if custom_id.len() > Message::custom_id_max_len() {
             self.button_base.context.borrow_mut().add_error(&format!(
                 "Custom ID length exceeds {} characters",
-                Button::custom_id_max_len()
+                Message::custom_id_max_len()
             ));
             return self;
         }
