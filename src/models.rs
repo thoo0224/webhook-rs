@@ -401,6 +401,7 @@ impl AllowedMentions {
 }
 
 // ready to be extended with other components
+// non-composite here specifically means *not an action row*
 #[derive(Debug)]
 enum NonCompositeComponent {
     Button(Button),
@@ -435,12 +436,12 @@ impl ActionRow {
         }
     }
 
-    pub fn link_button<Func>(&mut self, func: Func) -> &mut Self
+    pub fn link_button<Func>(&mut self, button_mutator: Func) -> &mut Self
     where
         Func: Fn(&mut LinkButton) -> &mut LinkButton,
     {
         let mut button = LinkButton::new(&self.context);
-        func(&mut button);
+        button_mutator(&mut button);
         if let Some(b) = button.create_button() {
             self.components.push(NonCompositeComponent::Button(b));
         }
@@ -448,12 +449,12 @@ impl ActionRow {
         self
     }
 
-    pub fn regular_button<Func>(&mut self, func: Func) -> &mut Self
+    pub fn regular_button<Func>(&mut self, button_mutator: Func) -> &mut Self
     where
         Func: Fn(&mut RegularButton) -> &mut RegularButton,
     {
         let mut button = RegularButton::new(&self.context);
-        func(&mut button);
+        button_mutator(&mut button);
         if let Some(b) = button.create_button() {
             self.components.push(NonCompositeComponent::Button(b));
         }
@@ -480,6 +481,9 @@ impl NonLinkButtonStyle {
     }
 }
 
+// since link button has an explicit way of creation via the action row
+// this enum is kept hidden from the user ans the NonLinkButtonStyle is created to avoid
+// user confusion
 #[derive(Debug)]
 enum ButtonStyles {
     Primary,
@@ -490,6 +494,7 @@ enum ButtonStyles {
 }
 
 impl ButtonStyles {
+    /// value for serialization purposes
     fn value(&self) -> i32 {
         match *self {
             ButtonStyles::Primary => 1,
@@ -517,6 +522,7 @@ pub struct PartialEmoji {
     pub animated: Option<bool>,
 }
 
+/// the button struct intended for serialized
 #[derive(Serialize, Debug)]
 struct Button {
     #[serde(rename = "type")]
@@ -532,7 +538,8 @@ struct Button {
 }
 
 impl Button {
-    fn new_link_button(
+    /// creates a link button
+    fn new_link(
         label: Option<String>,
         emoji: Option<PartialEmoji>,
         url: Option<String>,
@@ -551,7 +558,8 @@ impl Button {
         }
     }
 
-    fn new_regular_button(
+    /// creates a regular button
+    fn new_regular(
         style: NonLinkButtonStyle,
         label: Option<String>,
         emoji: Option<PartialEmoji>,
@@ -572,9 +580,7 @@ impl Button {
     }
 }
 
-///
-/// A data holder for shared fields of a link and regular buttons
-///
+/// Data holder for shared fields of link and regular buttons
 #[derive(Debug)]
 struct ButtonCommonBase {
     pub label: Option<String>,
@@ -624,6 +630,27 @@ impl ButtonCommonBase {
     }
 }
 
+/// a macro which takes an identifier (`base`) of the ButtonCommonBase (relative to `self`)
+/// and generates setter functions that delegate their inputs to the `self.base`
+macro_rules! button_base_delegation {
+    ($base:ident) => {
+        pub fn emoji(&mut self, emoji_id: &str, name: &str, animated: bool) -> &mut Self {
+            self.$base.emoji(emoji_id.to_string(), name, animated);
+            self
+        }
+
+        pub fn disabled(&mut self, disabled: bool) -> &mut Self {
+            self.$base.disabled(disabled);
+            self
+        }
+
+        pub fn label(&mut self, label: &str) -> &mut Self {
+            self.$base.label(label);
+            self
+        }
+    };
+}
+
 #[derive(Debug)]
 pub struct LinkButton {
     button_base: ButtonCommonBase,
@@ -643,25 +670,7 @@ impl LinkButton {
         self
     }
 
-    /*
-    ---------------------
-    ButtonBase delegation
-    ---------------------
-    */
-    pub fn emoji(&mut self, emoji_id: &str, name: &str, animated: bool) -> &mut Self {
-        self.button_base.emoji(emoji_id.to_string(), name, animated);
-        self
-    }
-
-    pub fn disabled(&mut self, disabled: bool) -> &mut Self {
-        self.button_base.disabled(disabled);
-        self
-    }
-
-    pub fn label(&mut self, label: &str) -> &mut Self {
-        self.button_base.label(label);
-        self
-    }
+    button_base_delegation!(button_base);
 }
 
 pub struct RegularButton {
@@ -713,25 +722,7 @@ impl RegularButton {
         self
     }
 
-    /*
-    ---------------------
-    ButtonBase delegation
-    ---------------------
-    */
-    pub fn emoji(&mut self, emoji_id: &str, name: &str, animated: bool) -> &mut Self {
-        self.button_base.emoji(emoji_id.to_string(), name, animated);
-        self
-    }
-
-    pub fn disabled(&mut self, disabled: bool) -> &mut Self {
-        self.button_base.disabled(disabled);
-        self
-    }
-
-    pub fn label(&mut self, label: &str) -> &mut Self {
-        self.button_base.label(label);
-        self
-    }
+    button_base_delegation!(button_base);
 }
 
 trait ButtonConstructor {
@@ -748,7 +739,7 @@ impl ButtonConstructor for LinkButton {
             return None;
         }
 
-        Some(Button::new_link_button(
+        Some(Button::new_link(
             self.button_base.label.clone(),
             self.button_base.emoji.clone(),
             self.url.clone(),
@@ -775,7 +766,7 @@ impl ButtonConstructor for RegularButton {
             return None;
         }
 
-        Some(Button::new_regular_button(
+        Some(Button::new_regular(
             self.style.as_ref().unwrap().clone(),
             self.button_base.label.clone(),
             self.button_base.emoji.clone(),
