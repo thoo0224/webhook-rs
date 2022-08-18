@@ -11,7 +11,7 @@ Discord Webhook API Wrapper
 For a full example, take a look at `examples/example.rs`.
 ```rust
 let url: &str = "Webhook URL";
-let client: WebhookClient = WebhookClient::new(URL);
+let client: WebhookClient = WebhookClient::new(url);
 client.send(|message| message
     .username("Thoo")
     .avatar_url(IMAGE_URL)
@@ -30,7 +30,7 @@ To get started, simply add the crate to your `Cargo.toml`.
 
 ```toml
 [dependencies]
-webhook = "1.0.0"
+webhook = "2.0.0"
 ```
 
 If you only want the types, you can get rid of the networking-related
@@ -38,7 +38,7 @@ dependencies by using the feature `models`.
 
 ```toml
 [dependencies]
-webhook = { version = "1.0.0", features = ["models"] }
+webhook = { version = "2.0.0", features = ["models"] }
 ```
 
 ### To do
