@@ -173,7 +173,7 @@ impl Embed {
 
     pub fn field(&mut self, name: &str, value: &str, inline: bool) -> &mut Self {
         if self.fields.len() == 24 {
-            panic!("You can't have more than 25 embeds!")
+            panic!("You can't have more than 25 fields in an embed!")
         }
 
         self.fields.push(EmbedField::new(name, value, inline));
