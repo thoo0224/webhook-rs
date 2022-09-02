@@ -532,7 +532,9 @@ struct Button {
     pub custom_id: Option<String>,
     pub url: Option<String>,
     pub disabled: Option<bool>,
+
     #[serde(skip_serializing)]
+    #[allow(dead_code)]
     context: Rc<RefCell<MessageContext>>,
 }
 

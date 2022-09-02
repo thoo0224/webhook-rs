@@ -93,7 +93,7 @@ impl WebhookClient {
 #[cfg(test)]
 mod tests {
     use crate::client::WebhookClient;
-    use crate::models::{ActionRow, Message, NonLinkButtonStyle};
+    use crate::models::{Message, NonLinkButtonStyle};
 
     async fn assert_client_error<BuildFunc, MessagePred>(
         message_build: BuildFunc,
