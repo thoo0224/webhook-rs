@@ -8,6 +8,7 @@ Discord Webhook API Wrapper
 </div>
 
 ### Example usage
+Using an application webhook, you may also create message components (so far only buttons).
 For a full example, take a look at `examples/example.rs`.
 ```rust
 let url: &str = "Webhook URL";

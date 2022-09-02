@@ -26,7 +26,7 @@ impl WebhookClient {
     }
 
     /// Example
-    /// ```rust
+    /// ```ignore
     /// let client = WebhookClient::new("URL");
     /// client.send(|message| message
     ///     .content("content")
@@ -38,6 +38,15 @@ impl WebhookClient {
     {
         let mut message = Message::new();
         function(&mut message);
+        match message.first_error_message() {
+            None => (),
+            Some(error_message) => {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    error_message,
+                )));
+            }
+        };
         let result = self.send_message(&message).await?;
 
         Ok(result)
@@ -78,5 +87,137 @@ impl WebhookClient {
         let webhook = serde_json::from_reader(body.reader())?;
 
         Ok(webhook)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::client::WebhookClient;
+    use crate::models::{ActionRow, Message, NonLinkButtonStyle};
+
+    async fn assert_client_error<BuildFunc, MessagePred>(
+        message_build: BuildFunc,
+        msg_pred: MessagePred,
+    ) -> ()
+    where
+        BuildFunc: Fn(&mut Message) -> &mut Message,
+        MessagePred: Fn(&str) -> bool,
+    {
+        let client = WebhookClient::new("https://discord.com");
+        let result = client.send(message_build).await;
+        match result {
+            Err(err) => {
+                assert!(
+                    msg_pred(&err.to_string()),
+                    "Unexpected error message {}",
+                    err.to_string()
+                )
+            }
+            Ok(_) => assert!(false, "Error is expected"),
+        };
+    }
+
+    #[tokio::test]
+    async fn send_message_custom_id_reuse_prohibited() {
+        assert_client_error(
+            |message| {
+                message.action_row(|row| {
+                    row.regular_button(|button| {
+                        button.custom_id("0").style(NonLinkButtonStyle::Primary)
+                    })
+                    .regular_button(|button| {
+                        button.custom_id("0").style(NonLinkButtonStyle::Primary)
+                    })
+                })
+            },
+            |err_msg| err_msg.to_lowercase().contains("twice"),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn send_message_button_style_required() {
+        assert_client_error(
+            |message| message.action_row(|row| row.regular_button(|button| button.custom_id("0"))),
+            |err_msg| err_msg.to_lowercase().contains("style"),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn send_message_url_required() {
+        assert_client_error(
+            |message| message.action_row(|row| row.link_button(|button| button.label("test"))),
+            |err_msg| err_msg.to_lowercase().contains("url"),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn send_message_max_action_rows_enforced() {
+        assert_client_error(
+            |message| {
+                for _ in 0..(Message::max_action_row_count() + 1) {
+                    message.action_row(|row| row);
+                }
+                message
+            },
+            |err_msg| {
+                err_msg.to_lowercase().contains("exceed") && err_msg.to_lowercase().contains("row")
+            },
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn send_message_max_label_len_enforced() {
+        assert_client_error(
+            |message| {
+                message.action_row(|row| {
+                    row.regular_button(|btn| {
+                        btn.style(NonLinkButtonStyle::Primary)
+                            .custom_id("a")
+                            .label(&"l".repeat(Message::label_max_len() + 1))
+                    })
+                })
+            },
+            |err_msg| {
+                err_msg.to_lowercase().contains("exceed")
+                    && err_msg.to_lowercase().contains("label")
+            },
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn send_message_custom_id_required() {
+        assert_client_error(
+            |message| {
+                message.action_row(|row| {
+                    row.regular_button(|btn| btn.style(NonLinkButtonStyle::Primary))
+                })
+            },
+            |err_msg| err_msg.to_lowercase().contains("custom id"),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn send_message_max_custom_id_len_enforced() {
+        assert_client_error(
+            |message| {
+                message.action_row(|row| {
+                    row.regular_button(|btn| {
+                        btn.style(NonLinkButtonStyle::Primary)
+                            .custom_id(&"a".repeat(Message::custom_id_max_len() + 1))
+                    })
+                })
+            },
+            |err_msg| {
+                err_msg.to_lowercase().contains("exceed")
+                    && err_msg.to_lowercase().contains("custom id")
+            },
+        )
+        .await;
     }
 }
