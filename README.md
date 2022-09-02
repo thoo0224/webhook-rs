@@ -12,7 +12,7 @@ Using an application webhook, you may also create message components (so far onl
 For a full example, take a look at `examples/example.rs`.
 ```rust
 let url: &str = "Webhook URL";
-let client: WebhookClient = WebhookClient::new(URL);
+let client: WebhookClient = WebhookClient::new(url);
 client.send(|message| message
     .username("Thoo")
     .avatar_url(IMAGE_URL)
