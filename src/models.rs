@@ -409,10 +409,9 @@ impl ActionRow {
     {
         let mut button = LinkButton::new();
         button_mutator(&mut button);
-        if let Some(b) = button.create_button() {
-            self.components.push(NonCompositeComponent::Button(b));
-        }
-
+        self.components.push(NonCompositeComponent::Button(
+            button.to_serializable_button()
+        ));
         self
     }
 
@@ -422,9 +421,9 @@ impl ActionRow {
     {
         let mut button = RegularButton::new();
         button_mutator(&mut button);
-        if let Some(b) = button.create_button() {
-            self.components.push(NonCompositeComponent::Button(b));
-        }
+        self.components.push(NonCompositeComponent::Button(
+            button.to_serializable_button()
+        ));
         self
     }
 }
@@ -503,39 +502,21 @@ struct Button {
 }
 
 impl Button {
-    /// creates a link button
-    fn new_link(
+    fn new(
+        style: Option<ButtonStyles>,
         label: Option<String>,
         emoji: Option<PartialEmoji>,
         url: Option<String>,
-        disabled: Option<bool>,
-    ) -> Self {
-        Self {
-            component_type: 2,
-            style: Some(ButtonStyles::Link),
-            label,
-            emoji,
-            custom_id: None,
-            url,
-            disabled,
-        }
-    }
-
-    /// creates a regular button
-    fn new_regular(
-        style: Option<NonLinkButtonStyle>,
-        label: Option<String>,
-        emoji: Option<PartialEmoji>,
         custom_id: Option<String>,
         disabled: Option<bool>,
     ) -> Self {
         Self {
             component_type: 2,
-            style: style.map(|s| s.get_button_style()),
+            style,
             label,
             emoji,
+            url,
             custom_id,
-            url: None,
             disabled,
         }
     }
@@ -648,34 +629,41 @@ impl RegularButton {
     button_base_delegation!(button_base);
 }
 
-// TODO: Option<> is redundant, maybe rename to ToButton
-trait ButtonConstructor {
-    fn create_button(&self) -> Option<Button>;
+trait ToSerializableButton {
+    fn to_serializable_button(&self) -> Button;
 }
 
-impl ButtonConstructor for LinkButton {
-    fn create_button(&self) -> Option<Button> {
-        Some(Button::new_link(
+impl ToSerializableButton for LinkButton {
+    fn to_serializable_button(&self) -> Button {
+        Button::new(
+            Some(ButtonStyles::Link),
             self.button_base.label.clone(),
             self.button_base.emoji.clone(),
             self.url.clone(),
+            None,
             self.button_base.disabled,
-        ))
+        )
     }
 }
 
-impl ButtonConstructor for RegularButton {
-    fn create_button(&self) -> Option<Button> {
-        Some(Button::new_regular(
-            self.style.clone(),
+impl ToSerializableButton for RegularButton {
+    fn to_serializable_button(&self) -> Button {
+        Button::new(
+            self.style.clone().map(|s| s.get_button_style()),
             self.button_base.label.clone(),
             self.button_base.emoji.clone(),
+            None,
             self.custom_id.clone(),
             self.button_base.disabled,
-        ))
+        )
     }
 }
 
+/// A trait for checking that an API message component is compatible with the official Discord API constraints
+///
+/// This trait should be implemented for any components for which the Discord API documentation states
+/// limitations (maximum count, maximum length, uniqueness with respect to other components, restrictions
+/// on children components, ...)
 pub(crate) trait DiscordApiCompatible {
     fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String>;
 }
@@ -688,7 +676,7 @@ impl DiscordApiCompatible for NonCompositeComponent {
     }
 }
 
-fn bool_to_res<E>(b: bool, err: E) -> Result<(), E> {
+fn bool_to_result<E>(b: bool, err: E) -> Result<(), E> {
     if b {
         Ok(())
     } else {
@@ -720,14 +708,14 @@ impl DiscordApiCompatible for Button {
             | Some(ButtonStyles::Success)
             | Some(ButtonStyles::Secondary) => {
                 return if let Some(id) = self.custom_id.as_ref() {
-                    bool_to_res(
+                    bool_to_result(
                         id.len() <= Message::custom_id_max_len(),
                         format!(
                             "Custom ID length exceeds {} characters",
                             Message::custom_id_max_len()
                         ),
                     )
-                    .and(bool_to_res(
+                    .and(bool_to_result(
                         context.register_custom_id(id),
                         format!(
                             "Attempt to use the same custom ID ({}) twice! (buttonLabel: {:?})",
@@ -736,7 +724,7 @@ impl DiscordApiCompatible for Button {
                     ))
                 } else {
                     Err("Custom ID of a NonLink button must be set!".to_string())
-                }
+                };
             }
         };
     }
@@ -752,7 +740,7 @@ impl DiscordApiCompatible for ActionRow {
 
 impl DiscordApiCompatible for Message {
     fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String> {
-        if self.action_rows.len() > Self::max_action_row_count() - 1 {
+        if self.action_rows.len() > Self::max_action_row_count() {
             return Err(format!(
                 "Action row count exceeded {} (maximum)",
                 Message::max_action_row_count()
