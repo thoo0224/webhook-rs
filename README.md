@@ -31,7 +31,7 @@ To get started, simply add the crate to your `Cargo.toml`.
 
 ```toml
 [dependencies]
-webhook = "2.1.0"
+webhook = "2.1.1"
 ```
 
 If you only want the types, you can get rid of the networking-related
@@ -39,7 +39,7 @@ dependencies by using the feature `models`.
 
 ```toml
 [dependencies]
-webhook = { version = "2.1.0", features = ["models"] }
+webhook = { version = "2.1.1", features = ["models"] }
 ```
 
 ### To do
