@@ -1,6 +1,6 @@
 [package]
 name = "webhook"
-version = "2.1.0"
+version = "2.1.1"
 edition = "2018"
 description = "Discord Webhook API Wrapper"
 readme = "README.md"

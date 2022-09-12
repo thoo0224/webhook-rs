@@ -5,7 +5,7 @@ use hyper_tls::HttpsConnector;
 
 use std::str::FromStr;
 
-use crate::models::{Message, Webhook};
+use crate::models::{DiscordApiCompatible, Message, MessageContext, Webhook};
 
 pub type WebhookResult<Type> = std::result::Result<Type, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -38,9 +38,10 @@ impl WebhookClient {
     {
         let mut message = Message::new();
         function(&mut message);
-        match message.first_error_message() {
-            None => (),
-            Some(error_message) => {
+        let mut message_context = MessageContext::new();
+        match message.check_compatibility(&mut message_context) {
+            Ok(_) => (),
+            Err(error_message) => {
                 return Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     error_message,

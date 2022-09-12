@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize, Serializer};
-use std::cell::RefCell;
 use std::collections::HashSet;
-use std::rc::Rc;
 
 type Snowflake = String;
 
@@ -19,9 +17,8 @@ pub struct Webhook {
 }
 
 #[derive(Debug)]
-struct MessageContext {
+pub(crate) struct MessageContext {
     custom_ids: HashSet<String>,
-    errors: Vec<String>,
 }
 
 impl MessageContext {
@@ -40,18 +37,9 @@ impl MessageContext {
         self.custom_ids.insert(id.to_string())
     }
 
-    pub fn add_error(&mut self, error: &str) {
-        self.errors.push(error.to_string());
-    }
-
-    pub fn get_error(&mut self, index: usize) -> Option<&String> {
-        self.errors.get(index)
-    }
-
     pub fn new() -> MessageContext {
         MessageContext {
             custom_ids: HashSet::new(),
-            errors: vec![],
         }
     }
 }
@@ -66,8 +54,6 @@ pub struct Message {
     pub allow_mentions: Option<AllowedMentions>,
     #[serde(rename = "components")]
     pub action_rows: Vec<ActionRow>,
-    #[serde(skip_serializing)]
-    context: Rc<RefCell<MessageContext>>,
 }
 
 impl Message {
@@ -80,14 +66,7 @@ impl Message {
             embeds: vec![],
             allow_mentions: None,
             action_rows: vec![],
-            context: Rc::new(RefCell::new(MessageContext::new())),
         }
-    }
-    pub(crate) fn first_error_message(&self) -> Option<String> {
-        self.context
-            .borrow_mut()
-            .get_error(0)
-            .map(|s| s.to_string())
     }
 
     pub fn content(&mut self, content: &str) -> &mut Self {
@@ -125,15 +104,7 @@ impl Message {
     where
         Func: Fn(&mut ActionRow) -> &mut ActionRow,
     {
-        let mut row = ActionRow::new(&self.context);
-        if self.action_rows.len() > Self::max_action_row_count() - 1 {
-            self.context.borrow_mut().add_error(&format!(
-                "Action row count exceeded {} (maximum)",
-                Self::max_action_row_count()
-            ));
-            return self;
-        }
-
+        let mut row = ActionRow::new();
         func(&mut row);
         self.action_rows.push(row);
 
@@ -422,16 +393,13 @@ pub struct ActionRow {
     #[serde(rename = "type")]
     pub component_type: u8,
     components: Vec<NonCompositeComponent>,
-    #[serde(skip_serializing)]
-    context: Rc<RefCell<MessageContext>>,
 }
 
 impl ActionRow {
-    fn new(context: &Rc<RefCell<MessageContext>>) -> ActionRow {
+    fn new() -> ActionRow {
         ActionRow {
             component_type: 1,
             components: vec![],
-            context: Rc::clone(context),
         }
     }
 
@@ -439,12 +407,11 @@ impl ActionRow {
     where
         Func: Fn(&mut LinkButton) -> &mut LinkButton,
     {
-        let mut button = LinkButton::new(&self.context);
+        let mut button = LinkButton::new();
         button_mutator(&mut button);
-        if let Some(b) = button.create_button() {
-            self.components.push(NonCompositeComponent::Button(b));
-        }
-
+        self.components.push(NonCompositeComponent::Button(
+            button.to_serializable_button()
+        ));
         self
     }
 
@@ -452,11 +419,11 @@ impl ActionRow {
     where
         Func: Fn(&mut RegularButton) -> &mut RegularButton,
     {
-        let mut button = RegularButton::new(&self.context);
+        let mut button = RegularButton::new();
         button_mutator(&mut button);
-        if let Some(b) = button.create_button() {
-            self.components.push(NonCompositeComponent::Button(b));
-        }
+        self.components.push(NonCompositeComponent::Button(
+            button.to_serializable_button()
+        ));
         self
     }
 }
@@ -526,57 +493,31 @@ pub struct PartialEmoji {
 struct Button {
     #[serde(rename = "type")]
     pub component_type: i8,
-    pub style: ButtonStyles,
+    pub style: Option<ButtonStyles>,
     pub label: Option<String>,
     pub emoji: Option<PartialEmoji>,
     pub custom_id: Option<String>,
     pub url: Option<String>,
     pub disabled: Option<bool>,
-
-    #[serde(skip_serializing)]
-    #[allow(dead_code)]
-    context: Rc<RefCell<MessageContext>>,
 }
 
 impl Button {
-    /// creates a link button
-    fn new_link(
+    fn new(
+        style: Option<ButtonStyles>,
         label: Option<String>,
         emoji: Option<PartialEmoji>,
         url: Option<String>,
+        custom_id: Option<String>,
         disabled: Option<bool>,
-        context: &Rc<RefCell<MessageContext>>,
     ) -> Self {
         Self {
             component_type: 2,
-            style: ButtonStyles::Link,
+            style,
             label,
             emoji,
-            custom_id: None,
             url,
+            custom_id,
             disabled,
-            context: Rc::clone(context),
-        }
-    }
-
-    /// creates a regular button
-    fn new_regular(
-        style: NonLinkButtonStyle,
-        label: Option<String>,
-        emoji: Option<PartialEmoji>,
-        custom_id: String,
-        disabled: Option<bool>,
-        context: &Rc<RefCell<MessageContext>>,
-    ) -> Self {
-        Self {
-            component_type: 2,
-            style: style.get_button_style(),
-            label,
-            emoji,
-            custom_id: Some(custom_id),
-            url: None,
-            disabled,
-            context: Rc::clone(context),
         }
     }
 }
@@ -587,31 +528,17 @@ struct ButtonCommonBase {
     pub label: Option<String>,
     pub emoji: Option<PartialEmoji>,
     pub disabled: Option<bool>,
-    context: Rc<RefCell<MessageContext>>,
 }
 
 impl ButtonCommonBase {
-    fn new(
-        label: Option<String>,
-        emoji: Option<PartialEmoji>,
-        disabled: Option<bool>,
-        context: &Rc<RefCell<MessageContext>>,
-    ) -> Self {
+    fn new(label: Option<String>, emoji: Option<PartialEmoji>, disabled: Option<bool>) -> Self {
         ButtonCommonBase {
             label,
             emoji,
             disabled,
-            context: Rc::clone(context),
         }
     }
     fn label(&mut self, label: &str) -> &mut Self {
-        if label.len() > Message::label_max_len() {
-            self.context.borrow_mut().add_error(&format!(
-                "Label length exceeds {} characters",
-                Message::label_max_len()
-            ));
-            return self;
-        }
         self.label = Some(label.to_string());
         self
     }
@@ -659,9 +586,9 @@ pub struct LinkButton {
 }
 
 impl LinkButton {
-    fn new(context: &Rc<RefCell<MessageContext>>) -> Self {
+    fn new() -> Self {
         LinkButton {
-            button_base: ButtonCommonBase::new(None, None, None, context),
+            button_base: ButtonCommonBase::new(None, None, None),
             url: None,
         }
     }
@@ -681,39 +608,15 @@ pub struct RegularButton {
 }
 
 impl RegularButton {
-    fn new(context: &Rc<RefCell<MessageContext>>) -> Self {
+    fn new() -> Self {
         RegularButton {
-            button_base: ButtonCommonBase::new(None, None, None, context),
+            button_base: ButtonCommonBase::new(None, None, None),
             custom_id: None,
             style: None,
         }
     }
 
     pub fn custom_id(&mut self, custom_id: &str) -> &mut Self {
-        if custom_id.len() > Message::custom_id_max_len() {
-            self.button_base.context.borrow_mut().add_error(&format!(
-                "Custom ID length exceeds {} characters",
-                Message::custom_id_max_len()
-            ));
-            return self;
-        }
-        if !self
-            .button_base
-            .context
-            .borrow_mut()
-            .register_custom_id(custom_id)
-        {
-            self.button_base.context.borrow_mut().add_error(&format!(
-                "Attempt to use the same custom ID ({}) twice! (buttonLabel: {})",
-                custom_id,
-                match self.button_base.label.as_ref() {
-                    Some(label) => label,
-                    None => "Label not set",
-                }
-            ));
-            return self;
-        }
-
         self.custom_id = Some(custom_id.to_string());
         self
     }
@@ -726,54 +629,126 @@ impl RegularButton {
     button_base_delegation!(button_base);
 }
 
-trait ButtonConstructor {
-    fn create_button(&self) -> Option<Button>;
+trait ToSerializableButton {
+    fn to_serializable_button(&self) -> Button;
 }
 
-impl ButtonConstructor for LinkButton {
-    fn create_button(&self) -> Option<Button> {
-        if self.url.is_none() {
-            self.button_base
-                .context
-                .borrow_mut()
-                .add_error("Url of a Link button must be set!");
-            return None;
-        }
-
-        Some(Button::new_link(
+impl ToSerializableButton for LinkButton {
+    fn to_serializable_button(&self) -> Button {
+        Button::new(
+            Some(ButtonStyles::Link),
             self.button_base.label.clone(),
             self.button_base.emoji.clone(),
             self.url.clone(),
+            None,
             self.button_base.disabled,
-            &self.button_base.context,
-        ))
+        )
     }
 }
 
-impl ButtonConstructor for RegularButton {
-    fn create_button(&self) -> Option<Button> {
-        if self.style.is_none() {
-            self.button_base
-                .context
-                .borrow_mut()
-                .add_error("Button style of a NonLink button must be set!");
-            return None;
-        }
-        if self.custom_id.is_none() {
-            self.button_base
-                .context
-                .borrow_mut()
-                .add_error("Custom ID of a NonLink button must be set!");
-            return None;
-        }
-
-        Some(Button::new_regular(
-            self.style.as_ref().unwrap().clone(),
+impl ToSerializableButton for RegularButton {
+    fn to_serializable_button(&self) -> Button {
+        Button::new(
+            self.style.clone().map(|s| s.get_button_style()),
             self.button_base.label.clone(),
             self.button_base.emoji.clone(),
-            self.custom_id.as_ref().unwrap().clone(),
+            None,
+            self.custom_id.clone(),
             self.button_base.disabled,
-            &self.button_base.context,
-        ))
+        )
+    }
+}
+
+/// A trait for checking that an API message component is compatible with the official Discord API constraints
+///
+/// This trait should be implemented for any components for which the Discord API documentation states
+/// limitations (maximum count, maximum length, uniqueness with respect to other components, restrictions
+/// on children components, ...)
+pub(crate) trait DiscordApiCompatible {
+    fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String>;
+}
+
+impl DiscordApiCompatible for NonCompositeComponent {
+    fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String> {
+        match self {
+            NonCompositeComponent::Button(b) => b.check_compatibility(context),
+        }
+    }
+}
+
+fn bool_to_result<E>(b: bool, err: E) -> Result<(), E> {
+    if b {
+        Ok(())
+    } else {
+        Err(err)
+    }
+}
+
+impl DiscordApiCompatible for Button {
+    fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String> {
+        if self.label.is_some() && self.label.as_ref().unwrap().len() > Message::label_max_len() {
+            return Err(format!(
+                "Label length exceeds {} characters",
+                Message::label_max_len()
+            ));
+        }
+
+        return match self.style {
+            None => Err("Button style must be set!".to_string()),
+            Some(ButtonStyles::Link) => {
+                if self.url.is_none() {
+                    Err("Url of a Link button must be set!".to_string())
+                } else {
+                    Ok(())
+                }
+            }
+            // list all remaining in case a style with different requirements is added
+            Some(ButtonStyles::Danger)
+            | Some(ButtonStyles::Primary)
+            | Some(ButtonStyles::Success)
+            | Some(ButtonStyles::Secondary) => {
+                return if let Some(id) = self.custom_id.as_ref() {
+                    bool_to_result(
+                        id.len() <= Message::custom_id_max_len(),
+                        format!(
+                            "Custom ID length exceeds {} characters",
+                            Message::custom_id_max_len()
+                        ),
+                    )
+                    .and(bool_to_result(
+                        context.register_custom_id(id),
+                        format!(
+                            "Attempt to use the same custom ID ({}) twice! (buttonLabel: {:?})",
+                            id, self.label
+                        ),
+                    ))
+                } else {
+                    Err("Custom ID of a NonLink button must be set!".to_string())
+                };
+            }
+        };
+    }
+}
+
+impl DiscordApiCompatible for ActionRow {
+    fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String> {
+        self.components.iter().fold(Ok(()), |acc, component| {
+            acc.and(component.check_compatibility(context))
+        })
+    }
+}
+
+impl DiscordApiCompatible for Message {
+    fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String> {
+        if self.action_rows.len() > Self::max_action_row_count() {
+            return Err(format!(
+                "Action row count exceeded {} (maximum)",
+                Message::max_action_row_count()
+            ));
+        }
+
+        self.action_rows
+            .iter()
+            .fold(Ok(()), |acc, row| acc.and(row.check_compatibility(context)))
     }
 }
