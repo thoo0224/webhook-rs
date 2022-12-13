@@ -1,13 +1,13 @@
 [package]
 name = "webhook"
-version = "2.1.1"
+version = "2.1.2"
 edition = "2018"
 description = "Discord Webhook API Wrapper"
 readme = "README.md"
 repository = "https://github.com/thoo0224/webhook-rs"
 license = "MIT"
 keywords = ["discord", "discord-api", "webhook", "discord-webhook"]
-authors = ["Thomas Platschorre"]
+authors = ["Thomas"]
 publish = true
 
 exclude = [
