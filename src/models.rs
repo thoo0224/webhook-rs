@@ -19,6 +19,7 @@ pub struct Webhook {
 #[derive(Debug)]
 pub(crate) struct MessageContext {
     custom_ids: HashSet<String>,
+    embeds_character_counter: usize,
 }
 
 impl MessageContext {
@@ -37,9 +38,40 @@ impl MessageContext {
         self.custom_ids.insert(id.to_string())
     }
 
+
+    // Additionally, the combined sum of characters in all title, description, field.name,
+    // field.value, footer.text, and author.name fields across all embeds attached to a message
+    // must not exceed 6000 characters.
+    fn counter_valid(&self) -> bool {
+        self.embeds_character_counter <= 6000
+    }
+
+    /// Tries to register an Embed
+    ///
+    /// # Return value
+    ///
+    /// None on no error. Some(String) containing the reason for failure.
+    pub fn register_embed(&mut self, embed: &Embed) -> Option<String> {
+
+        self.embeds_character_counter += embed.title.as_ref().map_or(0, |s| s.len());
+        self.embeds_character_counter += embed.description.as_ref().map_or(0, |s| s.len());
+        self.embeds_character_counter += embed.footer.as_ref().map_or(0, |f| f.text.len());
+        self.embeds_character_counter += embed.author.as_ref().map_or(0, |a| a.name.len());
+
+        embed.fields.iter().for_each(|f| {
+            self.embeds_character_counter += f.name.len() + f.value.len();
+        });
+
+        if !self.counter_valid() {
+            return Some(format!("Overall Embeds' character count exceeded {} (maximum)", 6000));
+        }
+        None
+    }
+
     pub fn new() -> MessageContext {
         MessageContext {
             custom_ids: HashSet::new(),
+            embeds_character_counter: 0
         }
     }
 }
@@ -241,6 +273,11 @@ impl Embed {
         self.fields.push(EmbedField::new(name, value, inline));
         self
     }
+
+    pub fn title_max_len() -> usize { 256 }
+    pub fn description_max_len() -> usize { 4096 }
+    // enforced in field... by panic though...
+    pub fn fields_max_len() -> usize { 25 }
 }
 
 #[derive(Serialize, Debug)]
@@ -258,6 +295,9 @@ impl EmbedField {
             inline,
         }
     }
+
+    pub fn name_max_len() -> usize { 256 }
+    pub fn value_max_len() -> usize { 1024 }
 }
 
 #[derive(Serialize, Debug)]
@@ -273,6 +313,8 @@ impl EmbedFooter {
             icon_url,
         }
     }
+
+    pub fn text_max_len() -> usize { 2048 }
 }
 
 pub type EmbedImage = EmbedUrlSource;
@@ -322,6 +364,8 @@ impl EmbedAuthor {
             icon_url,
         }
     }
+
+    pub fn name_max_len() -> usize { 256 }
 }
 
 pub enum AllowedMention {
@@ -747,8 +791,88 @@ impl DiscordApiCompatible for Message {
             ));
         }
 
+        self.embeds
+            .iter()
+            .fold(Ok(()), |acc, emb| acc.and(emb.check_compatibility(context)))?;
+
         self.action_rows
             .iter()
             .fold(Ok(()), |acc, row| acc.and(row.check_compatibility(context)))
+    }
+}
+
+impl DiscordApiCompatible for Embed {
+    fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String> {
+        context.register_embed(self).map_or(Ok(()), Err)?;
+        if self.fields.len() > Self::fields_max_len() {
+            return Err(format!(
+                "Field count exceeded {} (maximum)",
+                Self::fields_max_len()
+            ));
+        }
+
+        if self.title.is_some() && self.title.as_ref().unwrap().len() > Self::title_max_len() {
+            return Err(format!(
+                "Embed title length exceeded {} (maximum)",
+                Self::title_max_len()
+            ));
+        }
+
+        if self.description.is_some() && self.description.as_ref().unwrap().len() > Self::description_max_len() {
+            return Err(format!(
+                "Embed description length exceeded {} (maximum)",
+                Self::description_max_len()
+            ));
+        }
+
+        self.author.as_ref().map_or_else(|| Ok(()), |a| a.check_compatibility(context))?;
+        self.footer.as_ref().map_or_else(|| Ok(()), |f| f.check_compatibility(context))?;
+
+        for field in self.fields.iter() {
+            field.check_compatibility(context)?;
+        }
+        Ok(())
+    }
+}
+
+impl DiscordApiCompatible for EmbedAuthor {
+    fn check_compatibility(&self, _context: &mut MessageContext) -> Result<(), String> {
+        if self.name.len() > Self::name_max_len() {
+            return Err(format!(
+                "Embed author name length exceeded {} (maximum)",
+                Self::name_max_len()
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl DiscordApiCompatible for EmbedFooter {
+    fn check_compatibility(&self, _context: &mut MessageContext) -> Result<(), String> {
+        if self.text.len() > Self::text_max_len() {
+            return Err(format!(
+                "Embed footer text length exceeded {} (maximum)",
+                Self::text_max_len()
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl DiscordApiCompatible for EmbedField {
+    fn check_compatibility(&self, _context: &mut MessageContext) -> Result<(), String> {
+        if self.value.len() > Self::value_max_len() {
+            return Err(format!(
+                "Embed field value length exceeded {} (maximum)",
+                Self::value_max_len()
+            ));
+        }
+        if self.name.len() > Self::name_max_len() {
+            return Err(format!(
+                "Embed field name length exceeded {} (maximum)",
+                Self::name_max_len()
+            ));
+        }
+        Ok(())
     }
 }
