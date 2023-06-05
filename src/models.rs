@@ -86,7 +86,7 @@ impl MessageContext {
     ///
     /// # Watch out!
     ///
-    /// Use `register_button` and `register_select_menu` for Buttons and Select Menus respectively!
+    /// Use only `register_button` for registering Buttons!
     ///
     /// # Arguments
     ///
@@ -526,7 +526,6 @@ impl ActionRow {
         self
     }
     interval_getter!(button_count_interval, usize, 0, 5);
-    interval_getter!(select_menu_count_interval, usize, 0, 1);
 }
 
 #[derive(Debug, Clone)]
