@@ -1,7 +1,51 @@
 use serde::{Deserialize, Serialize, Serializer};
 use std::collections::HashSet;
-
+use std::fmt::Display;
 type Snowflake = String;
+
+pub struct Interval<T> {
+    pub max_allowed: T,
+    pub min_allowed: T,
+}
+
+impl<T: Ord> Interval<T> {
+    pub const fn from_min_max(min_allowed: T, max_allowed: T) -> Self {
+        Interval {
+            min_allowed,
+            max_allowed,
+        }
+    }
+
+    pub fn contains(&self, value: &T) -> bool {
+        self.min_allowed <= *value && self.max_allowed >= *value
+    }
+}
+
+macro_rules! string_option_setter {
+    ($base:ident) => {
+        pub fn $base(&mut self, $base: &str) -> &mut Self {
+            self.$base = Some($base.to_string());
+            self
+        }
+    };
+}
+
+macro_rules! typed_option_setter {
+    ($base:ident, $option_inner_t:ty) => {
+        pub fn $base(&mut self, $base: $option_inner_t) -> &mut Self {
+            self.$base = Some($base);
+            self
+        }
+    };
+}
+
+macro_rules! interval_getter {
+    ($name:ident, $option_inner_t:ty, $lower_bound:expr, $upper_bound:expr) => {
+        pub const fn $name() -> Interval<$option_inner_t> {
+            Interval::from_min_max($lower_bound, $upper_bound)
+        }
+    };
+}
 
 #[derive(Deserialize, Debug)]
 pub struct Webhook {
@@ -20,10 +64,29 @@ pub struct Webhook {
 pub(crate) struct MessageContext {
     custom_ids: HashSet<String>,
     embeds_character_counter: usize,
+    button_count_in_action_row: usize,
+}
+
+fn interval_check<T: Ord + Display>(
+    interval: &Interval<T>,
+    value_to_test: &T,
+    field_name: &str,
+) -> Result<(), String> {
+    if !interval.contains(value_to_test) {
+        return Err(format!(
+            "{} ({}) not in the [{}, {}] interval",
+            field_name, value_to_test, interval.min_allowed, interval.max_allowed
+        ));
+    }
+    Ok(())
 }
 
 impl MessageContext {
     /// Tries to register a custom id.
+    ///
+    /// # Watch out!
+    ///
+    /// Use `register_button` and `register_select_menu` for Buttons and Select Menus respectively!
     ///
     /// # Arguments
     ///
@@ -31,19 +94,17 @@ impl MessageContext {
     ///
     ///
     /// # Return value
-    /// Returns true if the custom id is unique.
-    ///
-    /// Returns false if the supplied custom id is duplicate of an already registered custom id.
-    pub fn register_custom_id(&mut self, id: &str) -> bool {
-        self.custom_ids.insert(id.to_string())
-    }
+    /// Error variant contains an error message
+    fn register_custom_id(&mut self, id: &str) -> Result<(), String> {
+        interval_check(
+            &Message::custom_id_len_interval(),
+            &id.len(),
+            "Custom ID length")?;
 
-
-    // Additionally, the combined sum of characters in all title, description, field.name,
-    // field.value, footer.text, and author.name fields across all embeds attached to a message
-    // must not exceed 6000 characters.
-    fn counter_valid(&self) -> bool {
-        self.embeds_character_counter <= 6000
+        if !self.custom_ids.insert(id.to_string()) {
+            return Err(format!("Attempt to use the same custom ID ({}) twice!", id));
+        }
+        Ok(())
     }
 
     /// Tries to register an Embed
@@ -51,7 +112,7 @@ impl MessageContext {
     /// # Return value
     ///
     /// None on no error. Some(String) containing the reason for failure.
-    pub fn register_embed(&mut self, embed: &Embed) -> Option<String> {
+    pub fn register_embed(&mut self, embed: &Embed) -> Result<(), String> {
 
         self.embeds_character_counter += embed.title.as_ref().map_or(0, |s| s.len());
         self.embeds_character_counter += embed.description.as_ref().map_or(0, |s| s.len());
@@ -62,17 +123,48 @@ impl MessageContext {
             self.embeds_character_counter += f.name.len() + f.value.len();
         });
 
-        if !self.counter_valid() {
-            return Some(format!("Overall Embeds' character count exceeded {} (maximum)", 6000));
-        }
-        None
+        interval_check(
+            &Message::embed_total_text_len_interval(),
+            &self.embeds_character_counter,
+            "Character count across all embeds")?;
+        Ok(())
     }
 
-    pub fn new() -> MessageContext {
+    pub(crate) fn new() -> MessageContext {
         MessageContext {
             custom_ids: HashSet::new(),
+            button_count_in_action_row: 0,
             embeds_character_counter: 0
         }
+    }
+
+    /// Tries to register a button using the button's custom id.
+    ///
+    /// # Return value
+    /// Error variant contains an error message
+    ///
+    /// # Note
+    /// Subsequent calls register other components semantically in the same action row.
+    /// To register components in a new action row, use the `register_action_row` function before
+    /// calling this function
+    fn register_button(&mut self, id: &str) -> Result<(), String> {
+        self.register_custom_id(id)?;
+        self.button_count_in_action_row += 1;
+
+        interval_check(
+            &ActionRow::button_count_interval(),
+            &self.button_count_in_action_row,
+            "Button count")?;
+        Ok(())
+    }
+    /// Switches the context to register components logically in a "new" action row.
+    ///
+    /// # Watch out!
+    /// This function shall be called only once per one action row. (due to the lack of action row
+    /// identification)
+    fn register_action_row(&mut self) {
+        self.button_count_in_action_row = 0;
+        self.button_count_in_action_row = 0;
     }
 }
 
@@ -101,20 +193,9 @@ impl Message {
         }
     }
 
-    pub fn content(&mut self, content: &str) -> &mut Self {
-        self.content = Some(content.to_owned());
-        self
-    }
-
-    pub fn username(&mut self, username: &str) -> &mut Self {
-        self.username = Some(username.to_owned());
-        self
-    }
-
-    pub fn avatar_url(&mut self, avatar_url: &str) -> &mut Self {
-        self.avatar_url = Some(avatar_url.to_owned());
-        self
-    }
+    string_option_setter!(content);
+    string_option_setter!(username);
+    string_option_setter!(avatar_url);
 
     pub fn tts(&mut self, tts: bool) -> &mut Self {
         self.tts = tts;
@@ -143,17 +224,13 @@ impl Message {
         self
     }
 
-    pub fn max_action_row_count() -> usize {
-        5
-    }
-
-    pub fn label_max_len() -> usize {
-        80
-    }
-
-    pub fn custom_id_max_len() -> usize {
-        100
-    }
+    interval_getter!(action_row_count_interval, usize, 0, 5);
+    interval_getter!(label_len_interval, usize, 0, 80);
+    interval_getter!(custom_id_len_interval, usize, 1, 100);
+    // Additionally, the combined sum of characters in all title, description, field.name,
+    // field.value, footer.text, and author.name fields across all embeds attached to a message
+    // must not exceed 6000 characters.
+    interval_getter!(embed_total_text_len_interval, usize, 0, 6000);
 
     pub fn allow_mentions(
         &mut self,
@@ -205,30 +282,11 @@ impl Embed {
         }
     }
 
-    pub fn title(&mut self, title: &str) -> &mut Self {
-        self.title = Some(title.to_owned());
-        self
-    }
-
-    pub fn description(&mut self, description: &str) -> &mut Self {
-        self.description = Some(description.to_owned());
-        self
-    }
-
-    pub fn url(&mut self, url: &str) -> &mut Self {
-        self.url = Some(url.to_owned());
-        self
-    }
-
-    pub fn timestamp(&mut self, timestamp: &str) -> &mut Self {
-        self.timestamp = Some(timestamp.to_owned());
-        self
-    }
-
-    pub fn color(&mut self, color: &str) -> &mut Self {
-        self.color = Some(color.to_owned());
-        self
-    }
+    string_option_setter!(title);
+    string_option_setter!(description);
+    string_option_setter!(url);
+    string_option_setter!(timestamp);
+    string_option_setter!(color);
 
     pub fn footer(&mut self, text: &str, icon_url: Option<String>) -> &mut Self {
         self.footer = Some(EmbedFooter::new(text, icon_url));
@@ -266,18 +324,18 @@ impl Embed {
     }
 
     pub fn field(&mut self, name: &str, value: &str, inline: bool) -> &mut Self {
-        if self.fields.len() == 25 {
-            panic!("You can't have more than 25 fields in an embed!")
+        if self.fields.len() == Embed::fields_len_interval().max_allowed {
+            panic!("You can't have more than {} fields in an embed!", Embed::fields_len_interval().max_allowed)
         }
 
         self.fields.push(EmbedField::new(name, value, inline));
         self
     }
 
-    pub fn title_max_len() -> usize { 256 }
-    pub fn description_max_len() -> usize { 4096 }
-    // enforced in field... by panic though...
-    pub fn fields_max_len() -> usize { 25 }
+    interval_getter!(title_len_interval, usize, 0, 256);
+    interval_getter!(description_len_interval, usize, 0, 4096);
+    // enforced in field... by panic though... todo!
+    interval_getter!(fields_len_interval, usize, 0, 25);
 }
 
 #[derive(Serialize, Debug)]
@@ -295,9 +353,8 @@ impl EmbedField {
             inline,
         }
     }
-
-    pub fn name_max_len() -> usize { 256 }
-    pub fn value_max_len() -> usize { 1024 }
+    interval_getter!(name_len_interval, usize, 0, 256);
+    interval_getter!(value_len_interval, usize, 0, 1024);
 }
 
 #[derive(Serialize, Debug)]
@@ -313,8 +370,7 @@ impl EmbedFooter {
             icon_url,
         }
     }
-
-    pub fn text_max_len() -> usize { 2048 }
+    interval_getter!(text_len_interval, usize, 0, 2048);
 }
 
 pub type EmbedImage = EmbedUrlSource;
@@ -364,8 +420,7 @@ impl EmbedAuthor {
             icon_url,
         }
     }
-
-    pub fn name_max_len() -> usize { 256 }
+    interval_getter!(name_len_interval, usize, 0, 256);
 }
 
 pub enum AllowedMention {
@@ -454,7 +509,7 @@ impl ActionRow {
         let mut button = LinkButton::new();
         button_mutator(&mut button);
         self.components.push(NonCompositeComponent::Button(
-            button.to_serializable_button()
+            button.to_serializable_button(),
         ));
         self
     }
@@ -466,10 +521,12 @@ impl ActionRow {
         let mut button = RegularButton::new();
         button_mutator(&mut button);
         self.components.push(NonCompositeComponent::Button(
-            button.to_serializable_button()
+            button.to_serializable_button(),
         ));
         self
     }
+    interval_getter!(button_count_interval, usize, 0, 5);
+    interval_getter!(select_menu_count_interval, usize, 0, 1);
 }
 
 #[derive(Debug, Clone)]
@@ -576,10 +633,8 @@ impl ButtonCommonBase {
             disabled,
         }
     }
-    fn label(&mut self, label: &str) -> &mut Self {
-        self.label = Some(label.to_string());
-        self
-    }
+
+    string_option_setter!(label);
 
     fn emoji(&mut self, emoji_id: Snowflake, name: &str, animated: bool) -> &mut Self {
         self.emoji = Some(PartialEmoji {
@@ -589,11 +644,7 @@ impl ButtonCommonBase {
         });
         self
     }
-
-    fn disabled(&mut self, disabled: bool) -> &mut Self {
-        self.disabled = Some(disabled);
-        self
-    }
+    typed_option_setter!(disabled, bool);
 }
 
 /// a macro which takes an identifier (`base`) of the ButtonCommonBase (relative to `self`)
@@ -631,10 +682,7 @@ impl LinkButton {
         }
     }
 
-    pub fn url(&mut self, url: &str) -> &mut Self {
-        self.url = Some(url.to_string());
-        self
-    }
+    string_option_setter!(url);
 
     button_base_delegation!(button_base);
 }
@@ -654,15 +702,8 @@ impl RegularButton {
         }
     }
 
-    pub fn custom_id(&mut self, custom_id: &str) -> &mut Self {
-        self.custom_id = Some(custom_id.to_string());
-        self
-    }
-
-    pub fn style(&mut self, style: NonLinkButtonStyle) -> &mut Self {
-        self.style = Some(style);
-        self
-    }
+    string_option_setter!(custom_id);
+    typed_option_setter!(style, NonLinkButtonStyle);
 
     button_base_delegation!(button_base);
 }
@@ -714,21 +755,10 @@ impl DiscordApiCompatible for NonCompositeComponent {
     }
 }
 
-fn bool_to_result<E>(b: bool, err: E) -> Result<(), E> {
-    if b {
-        Ok(())
-    } else {
-        Err(err)
-    }
-}
-
 impl DiscordApiCompatible for Button {
     fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String> {
-        if self.label.is_some() && self.label.as_ref().unwrap().len() > Message::label_max_len() {
-            return Err(format!(
-                "Label length exceeds {} characters",
-                Message::label_max_len()
-            ));
+        if let Some(label) = &self.label {
+            interval_check(&Message::label_len_interval(), &label.len(), "Label length")?;
         }
 
         return match self.style {
@@ -746,20 +776,7 @@ impl DiscordApiCompatible for Button {
             | Some(ButtonStyles::Success)
             | Some(ButtonStyles::Secondary) => {
                 return if let Some(id) = self.custom_id.as_ref() {
-                    bool_to_result(
-                        id.len() <= Message::custom_id_max_len(),
-                        format!(
-                            "Custom ID length exceeds {} characters",
-                            Message::custom_id_max_len()
-                        ),
-                    )
-                    .and(bool_to_result(
-                        context.register_custom_id(id),
-                        format!(
-                            "Attempt to use the same custom ID ({}) twice! (buttonLabel: {:?})",
-                            id, self.label
-                        ),
-                    ))
+                    context.register_button(id)
                 } else {
                     Err("Custom ID of a NonLink button must be set!".to_string())
                 };
@@ -770,6 +787,11 @@ impl DiscordApiCompatible for Button {
 
 impl DiscordApiCompatible for ActionRow {
     fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String> {
+        context.register_action_row();
+        if self.components.is_empty() {
+            return Err("Empty action row detected!".to_string());
+        }
+
         self.components.iter().fold(Ok(()), |acc, component| {
             acc.and(component.check_compatibility(context))
         })
@@ -778,12 +800,10 @@ impl DiscordApiCompatible for ActionRow {
 
 impl DiscordApiCompatible for Message {
     fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String> {
-        if self.action_rows.len() > Self::max_action_row_count() {
-            return Err(format!(
-                "Action row count exceeded {} (maximum)",
-                Message::max_action_row_count()
-            ));
-        }
+        interval_check(
+            &Message::action_row_count_interval(),
+            &self.action_rows.len(),
+            "Action row count")?;
 
         self.embeds
             .iter()
@@ -797,26 +817,15 @@ impl DiscordApiCompatible for Message {
 
 impl DiscordApiCompatible for Embed {
     fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String> {
-        context.register_embed(self).map_or(Ok(()), Err)?;
-        if self.fields.len() > Self::fields_max_len() {
-            return Err(format!(
-                "Field count exceeded {} (maximum)",
-                Self::fields_max_len()
-            ));
+        context.register_embed(self)?;
+        interval_check(&Self::fields_len_interval(), &self.fields.len(), "Field count")?;
+
+        if let Some(title) = self.title.as_ref() {
+            interval_check(&Self::title_len_interval(), &title.len(), "Embed title length")?;
         }
 
-        if self.title.is_some() && self.title.as_ref().unwrap().len() > Self::title_max_len() {
-            return Err(format!(
-                "Embed title length exceeded {} (maximum)",
-                Self::title_max_len()
-            ));
-        }
-
-        if self.description.is_some() && self.description.as_ref().unwrap().len() > Self::description_max_len() {
-            return Err(format!(
-                "Embed description length exceeded {} (maximum)",
-                Self::description_max_len()
-            ));
+        if let Some(description) = self.description.as_ref() {
+            interval_check(&Self::description_len_interval(), &description.len(), "Embed description length")?;
         }
 
         self.author.as_ref().map_or_else(|| Ok(()), |a| a.check_compatibility(context))?;
@@ -831,42 +840,22 @@ impl DiscordApiCompatible for Embed {
 
 impl DiscordApiCompatible for EmbedAuthor {
     fn check_compatibility(&self, _context: &mut MessageContext) -> Result<(), String> {
-        if self.name.len() > Self::name_max_len() {
-            return Err(format!(
-                "Embed author name length exceeded {} (maximum)",
-                Self::name_max_len()
-            ));
-        }
+        interval_check(&Self::name_len_interval(), &self.name.len(), "Embed author name length")?;
         Ok(())
     }
 }
 
 impl DiscordApiCompatible for EmbedFooter {
     fn check_compatibility(&self, _context: &mut MessageContext) -> Result<(), String> {
-        if self.text.len() > Self::text_max_len() {
-            return Err(format!(
-                "Embed footer text length exceeded {} (maximum)",
-                Self::text_max_len()
-            ));
-        }
+        interval_check(&Self::text_len_interval(), &self.text.len(), "Embed footer text length")?;
         Ok(())
     }
 }
 
 impl DiscordApiCompatible for EmbedField {
     fn check_compatibility(&self, _context: &mut MessageContext) -> Result<(), String> {
-        if self.value.len() > Self::value_max_len() {
-            return Err(format!(
-                "Embed field value length exceeded {} (maximum)",
-                Self::value_max_len()
-            ));
-        }
-        if self.name.len() > Self::name_max_len() {
-            return Err(format!(
-                "Embed field name length exceeded {} (maximum)",
-                Self::name_max_len()
-            ));
-        }
+        interval_check(&Self::value_len_interval(), &self.value.len(), "Embed field value length")?;
+        interval_check(&Self::name_len_interval(), &self.name.len(), "Embed field name length")?;
         Ok(())
     }
 }
