@@ -503,25 +503,19 @@ enum ButtonStyles {
     Link,
 }
 
-impl ButtonStyles {
-    /// value for serialization purposes
-    fn value(&self) -> i32 {
-        match *self {
-            ButtonStyles::Primary => 1,
-            ButtonStyles::Secondary => 2,
-            ButtonStyles::Success => 3,
-            ButtonStyles::Danger => 4,
-            ButtonStyles::Link => 5,
-        }
-    }
-}
-
 impl Serialize for ButtonStyles {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_i32(self.value())
+        let to_serialize = match *self {
+            ButtonStyles::Primary => 1,
+            ButtonStyles::Secondary => 2,
+            ButtonStyles::Success => 3,
+            ButtonStyles::Danger => 4,
+            ButtonStyles::Link => 5,
+        };
+        serializer.serialize_i32(to_serialize)
     }
 }
 
