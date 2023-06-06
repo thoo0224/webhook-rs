@@ -21,24 +21,6 @@ impl<T: Ord> Interval<T> {
     }
 }
 
-macro_rules! string_option_setter {
-    ($base:ident) => {
-        pub fn $base(&mut self, $base: &str) -> &mut Self {
-            self.$base = Some($base.to_string());
-            self
-        }
-    };
-}
-
-macro_rules! typed_option_setter {
-    ($base:ident, $option_inner_t:ty) => {
-        pub fn $base(&mut self, $base: $option_inner_t) -> &mut Self {
-            self.$base = Some($base);
-            self
-        }
-    };
-}
-
 macro_rules! interval_member {
 ($name:ident, $option_inner_t:ty, $lower_bound:expr, $upper_bound:expr) => {
         pub(crate) const $name : Interval<$option_inner_t> = Interval::from_min_max($lower_bound, $upper_bound);
@@ -191,9 +173,20 @@ impl Message {
         }
     }
 
-    string_option_setter!(content);
-    string_option_setter!(username);
-    string_option_setter!(avatar_url);
+    pub fn content(&mut self, content: &str) -> &mut Self {
+        self.content = Some(content.to_owned());
+        self
+    }
+
+    pub fn username(&mut self, username: &str) -> &mut Self {
+        self.username = Some(username.to_owned());
+        self
+    }
+
+    pub fn avatar_url(&mut self, avatar_url: &str) -> &mut Self {
+        self.avatar_url = Some(avatar_url.to_owned());
+        self
+    }
 
     pub fn tts(&mut self, tts: bool) -> &mut Self {
         self.tts = tts;
@@ -280,11 +273,30 @@ impl Embed {
         }
     }
 
-    string_option_setter!(title);
-    string_option_setter!(description);
-    string_option_setter!(url);
-    string_option_setter!(timestamp);
-    string_option_setter!(color);
+    pub fn title(&mut self, title: &str) -> &mut Self {
+        self.title = Some(title.to_owned());
+        self
+    }
+
+    pub fn description(&mut self, description: &str) -> &mut Self {
+        self.description = Some(description.to_owned());
+        self
+    }
+
+    pub fn url(&mut self, url: &str) -> &mut Self {
+        self.url = Some(url.to_owned());
+        self
+    }
+
+    pub fn timestamp(&mut self, timestamp: &str) -> &mut Self {
+        self.timestamp = Some(timestamp.to_owned());
+        self
+    }
+
+    pub fn color(&mut self, color: &str) -> &mut Self {
+        self.color = Some(color.to_owned());
+        self
+    }
 
     pub fn footer(&mut self, text: &str, icon_url: Option<String>) -> &mut Self {
         self.footer = Some(EmbedFooter::new(text, icon_url));
@@ -630,8 +642,10 @@ impl ButtonCommonBase {
             disabled,
         }
     }
-
-    string_option_setter!(label);
+    fn label(&mut self, label: &str) -> &mut Self {
+        self.label = Some(label.to_string());
+        self
+    }
 
     fn emoji(&mut self, emoji_id: Snowflake, name: &str, animated: bool) -> &mut Self {
         self.emoji = Some(PartialEmoji {
@@ -641,7 +655,11 @@ impl ButtonCommonBase {
         });
         self
     }
-    typed_option_setter!(disabled, bool);
+
+    fn disabled(&mut self, disabled: bool) -> &mut Self {
+        self.disabled = Some(disabled);
+        self
+    }
 }
 
 /// a macro which takes an identifier (`base`) of the ButtonCommonBase (relative to `self`)
@@ -679,7 +697,10 @@ impl LinkButton {
         }
     }
 
-    string_option_setter!(url);
+    pub fn url(&mut self, url: &str) -> &mut Self {
+        self.url = Some(url.to_string());
+        self
+    }
 
     button_base_delegation!(button_base);
 }
@@ -699,8 +720,15 @@ impl RegularButton {
         }
     }
 
-    string_option_setter!(custom_id);
-    typed_option_setter!(style, NonLinkButtonStyle);
+    pub fn custom_id(&mut self, custom_id: &str) -> &mut Self {
+        self.custom_id = Some(custom_id.to_string());
+        self
+    }
+
+    pub fn style(&mut self, style: NonLinkButtonStyle) -> &mut Self {
+        self.style = Some(style);
+        self
+    }
 
     button_base_delegation!(button_base);
 }
@@ -815,7 +843,7 @@ impl DiscordApiCompatible for Message {
 impl DiscordApiCompatible for Embed {
     fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String> {
         context.register_embed(self)?;
-        interval_check(&Self::FIELDS_LEN_INTERVAL, &self.fields.len(), "Field count")?;
+        interval_check(&Self::FIELDS_LEN_INTERVAL, &self.fields.len(), "Embed field count")?;
 
         if let Some(title) = self.title.as_ref() {
             interval_check(&Self::TITLE_LEN_INTERVAL, &title.len(), "Embed title length")?;
