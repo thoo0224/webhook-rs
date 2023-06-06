@@ -39,11 +39,9 @@ macro_rules! typed_option_setter {
     };
 }
 
-macro_rules! interval_getter {
-    ($name:ident, $option_inner_t:ty, $lower_bound:expr, $upper_bound:expr) => {
-        pub const fn $name() -> Interval<$option_inner_t> {
-            Interval::from_min_max($lower_bound, $upper_bound)
-        }
+macro_rules! interval_member {
+($name:ident, $option_inner_t:ty, $lower_bound:expr, $upper_bound:expr) => {
+        pub(crate) const $name : Interval<$option_inner_t> = Interval::from_min_max($lower_bound, $upper_bound);
     };
 }
 
@@ -97,7 +95,7 @@ impl MessageContext {
     /// Error variant contains an error message
     fn register_custom_id(&mut self, id: &str) -> Result<(), String> {
         interval_check(
-            &Message::custom_id_len_interval(),
+            &Message::CUSTOM_ID_LEN_INTERVAL,
             &id.len(),
             "Custom ID length")?;
 
@@ -124,7 +122,7 @@ impl MessageContext {
         });
 
         interval_check(
-            &Message::embed_total_text_len_interval(),
+            &Message::EMBED_TOTAL_TEXT_LEN_INTERVAL,
             &self.embeds_character_counter,
             "Character count across all embeds")?;
         Ok(())
@@ -152,7 +150,7 @@ impl MessageContext {
         self.button_count_in_action_row += 1;
 
         interval_check(
-            &ActionRow::button_count_interval(),
+            &ActionRow::BUTTON_COUNT_INTERVAL,
             &self.button_count_in_action_row,
             "Button count")?;
         Ok(())
@@ -224,13 +222,13 @@ impl Message {
         self
     }
 
-    interval_getter!(action_row_count_interval, usize, 0, 5);
-    interval_getter!(label_len_interval, usize, 0, 80);
-    interval_getter!(custom_id_len_interval, usize, 1, 100);
+    interval_member!(ACTION_ROW_COUNT_INTERVAL, usize, 0, 5);
+    interval_member!(LABEL_LEN_INTERVAL, usize, 0, 80);
+    interval_member!(CUSTOM_ID_LEN_INTERVAL, usize, 1, 100);
     // Additionally, the combined sum of characters in all title, description, field.name,
     // field.value, footer.text, and author.name fields across all embeds attached to a message
     // must not exceed 6000 characters.
-    interval_getter!(embed_total_text_len_interval, usize, 0, 6000);
+    interval_member!(EMBED_TOTAL_TEXT_LEN_INTERVAL, usize, 0, 6000);
 
     pub fn allow_mentions(
         &mut self,
@@ -324,18 +322,18 @@ impl Embed {
     }
 
     pub fn field(&mut self, name: &str, value: &str, inline: bool) -> &mut Self {
-        if self.fields.len() == Embed::fields_len_interval().max_allowed {
-            panic!("You can't have more than {} fields in an embed!", Embed::fields_len_interval().max_allowed)
+        if self.fields.len() == Embed::FIELDS_LEN_INTERVAL.max_allowed {
+            panic!("You can't have more than {} fields in an embed!", Embed::FIELDS_LEN_INTERVAL.max_allowed)
         }
 
         self.fields.push(EmbedField::new(name, value, inline));
         self
     }
 
-    interval_getter!(title_len_interval, usize, 0, 256);
-    interval_getter!(description_len_interval, usize, 0, 4096);
+    interval_member!(TITLE_LEN_INTERVAL, usize, 0, 256);
+    interval_member!(DESCRIPTION_LEN_INTERVAL, usize, 0, 4096);
     // enforced in field... by panic though... todo!
-    interval_getter!(fields_len_interval, usize, 0, 25);
+    interval_member!(FIELDS_LEN_INTERVAL, usize, 0, 25);
 }
 
 #[derive(Serialize, Debug)]
@@ -353,8 +351,8 @@ impl EmbedField {
             inline,
         }
     }
-    interval_getter!(name_len_interval, usize, 0, 256);
-    interval_getter!(value_len_interval, usize, 0, 1024);
+    interval_member!(NAME_LEN_INTERVAL, usize, 0, 256);
+    interval_member!(VALUE_LEN_INTERVAL, usize, 0, 1024);
 }
 
 #[derive(Serialize, Debug)]
@@ -370,7 +368,7 @@ impl EmbedFooter {
             icon_url,
         }
     }
-    interval_getter!(text_len_interval, usize, 0, 2048);
+    interval_member!(TEXT_LEN_INTERVAL, usize, 0, 2048);
 }
 
 pub type EmbedImage = EmbedUrlSource;
@@ -420,7 +418,7 @@ impl EmbedAuthor {
             icon_url,
         }
     }
-    interval_getter!(name_len_interval, usize, 0, 256);
+    interval_member!(NAME_LEN_INTERVAL, usize, 0, 256);
 }
 
 pub enum AllowedMention {
@@ -525,7 +523,7 @@ impl ActionRow {
         ));
         self
     }
-    interval_getter!(button_count_interval, usize, 0, 5);
+    interval_member!(BUTTON_COUNT_INTERVAL, usize, 0, 5);
 }
 
 #[derive(Debug, Clone)]
@@ -757,7 +755,7 @@ impl DiscordApiCompatible for NonCompositeComponent {
 impl DiscordApiCompatible for Button {
     fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String> {
         if let Some(label) = &self.label {
-            interval_check(&Message::label_len_interval(), &label.len(), "Label length")?;
+            interval_check(&Message::LABEL_LEN_INTERVAL, &label.len(), "Label length")?;
         }
 
         return match self.style {
@@ -800,7 +798,7 @@ impl DiscordApiCompatible for ActionRow {
 impl DiscordApiCompatible for Message {
     fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String> {
         interval_check(
-            &Message::action_row_count_interval(),
+            &Message::ACTION_ROW_COUNT_INTERVAL,
             &self.action_rows.len(),
             "Action row count")?;
 
@@ -817,14 +815,14 @@ impl DiscordApiCompatible for Message {
 impl DiscordApiCompatible for Embed {
     fn check_compatibility(&self, context: &mut MessageContext) -> Result<(), String> {
         context.register_embed(self)?;
-        interval_check(&Self::fields_len_interval(), &self.fields.len(), "Field count")?;
+        interval_check(&Self::FIELDS_LEN_INTERVAL, &self.fields.len(), "Field count")?;
 
         if let Some(title) = self.title.as_ref() {
-            interval_check(&Self::title_len_interval(), &title.len(), "Embed title length")?;
+            interval_check(&Self::TITLE_LEN_INTERVAL, &title.len(), "Embed title length")?;
         }
 
         if let Some(description) = self.description.as_ref() {
-            interval_check(&Self::description_len_interval(), &description.len(), "Embed description length")?;
+            interval_check(&Self::DESCRIPTION_LEN_INTERVAL, &description.len(), "Embed description length")?;
         }
 
         self.author.as_ref().map_or_else(|| Ok(()), |a| a.check_compatibility(context))?;
@@ -839,22 +837,22 @@ impl DiscordApiCompatible for Embed {
 
 impl DiscordApiCompatible for EmbedAuthor {
     fn check_compatibility(&self, _context: &mut MessageContext) -> Result<(), String> {
-        interval_check(&Self::name_len_interval(), &self.name.len(), "Embed author name length")?;
+        interval_check(&Self::NAME_LEN_INTERVAL, &self.name.len(), "Embed author name length")?;
         Ok(())
     }
 }
 
 impl DiscordApiCompatible for EmbedFooter {
     fn check_compatibility(&self, _context: &mut MessageContext) -> Result<(), String> {
-        interval_check(&Self::text_len_interval(), &self.text.len(), "Embed footer text length")?;
+        interval_check(&Self::TEXT_LEN_INTERVAL, &self.text.len(), "Embed footer text length")?;
         Ok(())
     }
 }
 
 impl DiscordApiCompatible for EmbedField {
     fn check_compatibility(&self, _context: &mut MessageContext) -> Result<(), String> {
-        interval_check(&Self::value_len_interval(), &self.value.len(), "Embed field value length")?;
-        interval_check(&Self::name_len_interval(), &self.name.len(), "Embed field name length")?;
+        interval_check(&Self::VALUE_LEN_INTERVAL, &self.value.len(), "Embed field value length")?;
+        interval_check(&Self::NAME_LEN_INTERVAL, &self.name.len(), "Embed field name length")?;
         Ok(())
     }
 }

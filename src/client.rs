@@ -202,7 +202,7 @@ mod tests {
     fn send_message_max_action_rows_enforced() {
         assert_message_error(
             |message| {
-                for _ in 0..(Message::action_row_count_interval().max_allowed + 1) {
+                for _ in 0..(Message::ACTION_ROW_COUNT_INTERVAL.max_allowed + 1) {
                     message.action_row(|row| row);
                 }
                 message
@@ -219,7 +219,7 @@ mod tests {
                     row.regular_button(|btn| {
                         btn.style(NonLinkButtonStyle::Primary)
                             .custom_id("a")
-                            .label(&"l".repeat(Message::label_len_interval().max_allowed + 1))
+                            .label(&"l".repeat(Message::LABEL_LEN_INTERVAL.max_allowed + 1))
                     })
                 })
             },
@@ -246,7 +246,7 @@ mod tests {
                 message.action_row(|row| {
                     row.regular_button(|btn| {
                         btn.style(NonLinkButtonStyle::Primary).custom_id(
-                            &"a".repeat(Message::custom_id_len_interval().max_allowed + 1),
+                            &"a".repeat(Message::CUSTOM_ID_LEN_INTERVAL.max_allowed + 1),
                         )
                     })
                 })
@@ -260,7 +260,7 @@ mod tests {
         assert_message_error(
             |message| {
                 message.action_row(|row| {
-                    for i in 0..(ActionRow::button_count_interval().max_allowed + 1) {
+                    for i in 0..(ActionRow::BUTTON_COUNT_INTERVAL.max_allowed + 1) {
                         row.regular_button(|btn| {
                             btn.style(NonLinkButtonStyle::Primary)
                                 .custom_id(&(i.to_string()))
@@ -276,9 +276,9 @@ mod tests {
     #[test]
     fn max_button_count_enforced_only_per_action_row() {
         assert_valid_message(|message| {
-            for i in 0..Message::action_row_count_interval().max_allowed {
+            for i in 0..Message::ACTION_ROW_COUNT_INTERVAL.max_allowed {
                 message.action_row(|row| {
-                    for j in 0..(ActionRow::button_count_interval().max_allowed) {
+                    for j in 0..(ActionRow::BUTTON_COUNT_INTERVAL.max_allowed) {
                         row.regular_button(|btn| {
                             btn.style(NonLinkButtonStyle::Primary)
                                 .custom_id(&(i.to_string() + &j.to_string()))
@@ -321,7 +321,7 @@ mod tests {
             message
                 .embed(|embed| {
                     embed
-                        .title(&"a".repeat(Embed::title_len_interval().max_allowed + 1))
+                        .title(&"a".repeat(Embed::TITLE_LEN_INTERVAL.max_allowed + 1))
                 })
         },
      contains_all_predicate(vec!["interval", "embed", "title", "length"]),
@@ -334,7 +334,7 @@ mod tests {
             message
                 .embed(|embed| {
                     embed
-                        .description(&"a".repeat(Embed::description_len_interval().max_allowed + 1))
+                        .description(&"a".repeat(Embed::DESCRIPTION_LEN_INTERVAL.max_allowed + 1))
                 })
         },
      contains_all_predicate(vec!["interval", "embed", "description", "length"]),
@@ -347,7 +347,7 @@ mod tests {
             message
                 .embed(|embed| {
                     embed
-                        .author(&"a".repeat(EmbedAuthor::name_len_interval().max_allowed + 1), None, None)
+                        .author(&"a".repeat(EmbedAuthor::NAME_LEN_INTERVAL.max_allowed + 1), None, None)
                 })
         },
          contains_all_predicate(vec!["interval", "embed", "author", "name", "length"]),
@@ -360,7 +360,7 @@ mod tests {
             message
                 .embed(|embed| {
                     embed
-                        .footer(&"a".repeat(EmbedFooter::text_len_interval().max_allowed + 1), None)
+                        .footer(&"a".repeat(EmbedFooter::TEXT_LEN_INTERVAL.max_allowed + 1), None)
                 })
         },
          contains_all_predicate(vec!["interval", "embed", "footer", "text", "length"]),
@@ -373,7 +373,7 @@ mod tests {
             message
                 .embed(|embed| {
                     embed
-                        .field(&"a".repeat(EmbedField::name_len_interval().max_allowed + 1), "None", false)
+                        .field(&"a".repeat(EmbedField::NAME_LEN_INTERVAL.max_allowed + 1), "None", false)
                 })
         },
          contains_all_predicate(vec!["interval", "embed", "field", "name", "length"]),
@@ -386,7 +386,7 @@ mod tests {
             message
                 .embed(|embed| {
                     embed
-                        .field("None", &"a".repeat(EmbedField::value_len_interval().max_allowed + 1), false)
+                        .field("None", &"a".repeat(EmbedField::VALUE_LEN_INTERVAL.max_allowed + 1), false)
                 })
         },
      contains_all_predicate(vec!["interval", "embed", "field", "value", "length"]),
@@ -397,17 +397,17 @@ mod tests {
     fn embed_total_char_length_enforced() {
         // adds 2 embeds with maximum length descriptions
         // which should overflow the maximum allowed characters for embeds in total
-        assert!(Embed::description_len_interval().max_allowed * 2 > Message::embed_total_text_len_interval().max_allowed, "Key test values modified, fix this test!");
+        assert!(Embed::DESCRIPTION_LEN_INTERVAL.max_allowed * 2 > Message::EMBED_TOTAL_TEXT_LEN_INTERVAL.max_allowed, "Key test values modified, fix this test!");
 
         assert_message_error(|message| {
             message
                 .embed(|embed| {
                     embed
-                        .description(&"a".repeat(Embed::description_len_interval().max_allowed))
+                        .description(&"a".repeat(Embed::DESCRIPTION_LEN_INTERVAL.max_allowed))
                 })
                 .embed(|embed| {
                     embed
-                        .description(&"a".repeat(Embed::description_len_interval().max_allowed))
+                        .description(&"a".repeat(Embed::DESCRIPTION_LEN_INTERVAL.max_allowed))
                 })
         },
          contains_all_predicate(vec!["interval", "character", "count", "embed"]),
@@ -420,7 +420,7 @@ mod tests {
         assert_valid_message(|message| {
             message
                 .embed(|embed| {
-                    for _ in 0..Embed::fields_len_interval().max_allowed + 1 {
+                    for _ in 0..Embed::FIELDS_LEN_INTERVAL.max_allowed + 1 {
                         embed.field("None", "a", false);
                     }
                     embed
